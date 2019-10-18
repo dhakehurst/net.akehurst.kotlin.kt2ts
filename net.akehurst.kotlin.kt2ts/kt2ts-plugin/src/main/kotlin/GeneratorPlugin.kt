@@ -24,17 +24,17 @@ class GeneratorPlugin : Plugin<ProjectInternal> {
 
     override fun apply(project: ProjectInternal) {
         project.pluginManager.apply(BasePlugin::class.java)
-
         val ext = project.extensions.create<GeneratorPluginExtension>(GeneratorPluginExtension.NAME, GeneratorPluginExtension::class.java)
-        project.tasks.create(GenerateTask.NAME, GenerateTask::class.java) { gt ->
-            gt.doLast {
-                println("outputFile ${ext.outputFile}")
-                gt.outputFile = ext.outputFile
-                gt.templateDir = ext.templateDir
-                gt.configurationName = ext.configurationName
-                gt.classPatterns = ext.classPatterns
-                gt.typeMapping = ext.typeMapping
-            }
+        project.tasks.create(GenerateDeclarationsTask.NAME, GenerateDeclarationsTask::class.java) { gt ->
+            gt.dependsOn("metadataMainClasses")
+            gt.overwrite=ext.overwrite
+            gt.localOnly = ext.localOnly
+            gt.outputFile = ext.outputFile
+            gt.templateDir = ext.templateDir
+            gt.templateFileName = ext.templateFileName
+            gt.jvmName = ext.jvmName
+            gt.classPatterns = ext.classPatterns
+            gt.typeMapping = ext.typeMapping
         }
 
     }
