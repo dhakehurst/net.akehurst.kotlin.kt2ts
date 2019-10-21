@@ -25,17 +25,23 @@ class GeneratorPlugin : Plugin<ProjectInternal> {
     override fun apply(project: ProjectInternal) {
         project.pluginManager.apply(BasePlugin::class.java)
         val ext = project.extensions.create<GeneratorPluginExtension>(GeneratorPluginExtension.NAME, GeneratorPluginExtension::class.java)
+        project.tasks.create(GeneratePackageJsonTask.NAME, GeneratePackageJsonTask::class.java) { tsk ->
+            tsk.packageJsonFile = ext.packageJsonFile
+        }
         project.tasks.create(GenerateDeclarationsTask.NAME, GenerateDeclarationsTask::class.java) { gt ->
-            gt.dependsOn("metadataMainClasses")
+            //TODO: how to set dependsOn to "${ext.jvmName}MainClasses" ?
+            gt.dependsOn(GeneratePackageJsonTask.NAME)
             gt.overwrite=ext.overwrite
             gt.localOnly = ext.localOnly
-            gt.outputFile = ext.outputFile
+            gt.moduleOnly = ext.moduleOnly
+            gt.declarationsFile = ext.declarationsFile
             gt.templateDir = ext.templateDir
             gt.templateFileName = ext.templateFileName
             gt.jvmName = ext.jvmName
             gt.classPatterns = ext.classPatterns
             gt.typeMapping = ext.typeMapping
         }
+
 
     }
 

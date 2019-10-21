@@ -37,12 +37,18 @@ open class GeneratorPluginExtension(objects: ObjectFactory)  {
     var localOnly = objects.property(Boolean::class.java)
 
     /**
+     * if not empty, only use classes from this module
+     */
+    var moduleOnly = objects.listProperty(String::class.java)
+
+    /**
      * name of the jvm configuration [default 'jvm']
      */
     var jvmName = objects.property(String::class.java) //"commonMainImplementation"
     var templateFileName = objects.property(String::class.java) //"template.hbs"
     var templateDir = objects.directoryProperty()
-    var outputFile = objects.fileProperty()
+    var packageJsonFile = objects.fileProperty()
+    var declarationsFile = objects.fileProperty()
     var classPatterns = objects.listProperty(String::class.java)
     var typeMapping = objects.mapProperty(String::class.java,String::class.java)
 

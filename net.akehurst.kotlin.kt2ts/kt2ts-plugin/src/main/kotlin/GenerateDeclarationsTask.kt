@@ -41,6 +41,7 @@ import java.util.*
 import kotlin.Comparator
 import kotlin.reflect.KClass
 import kotlin.reflect.KType
+import kotlin.reflect.KTypeParameter
 import kotlin.reflect.full.isSubclassOf
 import kotlin.reflect.full.memberProperties
 import kotlin.streams.toList
@@ -65,6 +66,9 @@ open class GenerateDeclarationsTask : DefaultTask() {
     var localOnly = project.objects.property(Boolean::class.java)
 
     @get:Input
+    var moduleOnly = project.objects.listProperty(String::class.java)
+
+    @get:Input
     var jvmName = project.objects.property(String::class.java)
 
     @get:Input
@@ -75,7 +79,7 @@ open class GenerateDeclarationsTask : DefaultTask() {
     var templateDir = project.objects.directoryProperty()
 
     @get:OutputFile
-    var outputFile = project.objects.fileProperty()
+    var declarationsFile = project.objects.fileProperty()
 
     @get:Input
     var classPatterns = project.objects.listProperty(String::class.java)
@@ -110,7 +114,7 @@ open class GenerateDeclarationsTask : DefaultTask() {
         val model = this.createModel(this.classPatterns.get())
         //val model2 = this.createModel2(this.classPatterns.get())
         val td = this.templateDir.orNull?.asFile
-        val of = this.outputFile.get().asFile
+        val of = this.declarationsFile.get().asFile
         this.generate(model, td, of)
 
     }
@@ -236,8 +240,8 @@ open class GenerateDeclarationsTask : DefaultTask() {
         classPatterns.forEach {
             LOGGER.info("  ${it}")
         }
-        val clToGenerate = this.createClassLoader(false)
-        val clForAll = this.createClassLoader(true)
+        val clToGenerate = this.createClassLoaderForDecls()
+        val clForAll = this.createClassLoaderForAll()
         val scan = ClassGraph()//
                 .ignoreParentClassLoaders()
                 .overrideClassLoaders(clToGenerate)//
@@ -333,36 +337,48 @@ open class GenerateDeclarationsTask : DefaultTask() {
         return model
     }
 
-    private fun createClassLoader(forAll:Boolean): URLClassLoader {
+    private fun createClassLoaderForAll(): URLClassLoader {
         val urls = mutableListOf<URL>()
+        val forModules = moduleOnly.get()
         val localBuild = project.buildDir.resolve("classes/kotlin/${jvmName.get()}/main")//project.tasks.getByName("jvm8MainClasses").outputs.files
         val localUrl = localBuild.absoluteFile.toURI().toURL() //URL("file://"+localBuild.absoluteFile+"/")
         urls.add(localUrl)
-        if (forAll || localOnly.get().not()) {
             val configurationName = jvmName.get() + "RuntimeClasspath"
             val c = this.project.configurations.findByName(configurationName) ?: throw RuntimeException("Cannot find $configurationName configuration")
-            c.isCanBeResolved = true
+            //c.isCanBeResolved = true
             c.resolvedConfiguration.resolvedArtifacts.forEach { dep ->
-                val file = dep.file
-                try {
-                    LOGGER.debug("Adding url for $file")
-                    urls.add(file.toURI().toURL())
-                } catch (e: MalformedURLException) {
-                    LOGGER.error("Unable to create url for $file", e)
-                }
-
+                    val file = dep.file
+                    try {
+                        LOGGER.info("For classpath adding url for $file")
+                        urls.add(file.toURI().toURL())
+                    } catch (e: MalformedURLException) {
+                        LOGGER.error("Unable to create url for $file", e)
+                    }
             }
-            /*
-            for (file in c.resolve()) {
-                try {
-                    LOGGER.debug("Adding url for $file")
-                    urls.add(file.toURI().toURL())
-                } catch (e: MalformedURLException) {
-                    LOGGER.error("Unable to create url for $file", e)
-                }
+        return URLClassLoader(urls.toTypedArray(), Thread.currentThread().contextClassLoader)
+    }
 
+    private fun createClassLoaderForDecls(): URLClassLoader {
+        val urls = mutableListOf<URL>()
+        val forModules = moduleOnly.get()
+        val localBuild = project.buildDir.resolve("classes/kotlin/${jvmName.get()}/main")//project.tasks.getByName("jvm8MainClasses").outputs.files
+        val localUrl = localBuild.absoluteFile.toURI().toURL() //URL("file://"+localBuild.absoluteFile+"/")
+        urls.add(localUrl)
+        if (localOnly.get().not()) {
+            val configurationName = jvmName.get() + "RuntimeClasspath"
+            val c = this.project.configurations.findByName(configurationName) ?: throw RuntimeException("Cannot find $configurationName configuration")
+            //c.isCanBeResolved = true
+            c.resolvedConfiguration.resolvedArtifacts.forEach { dep ->
+                if(forModules.isEmpty() || forModules.contains(dep.name)) {
+                    val file = dep.file
+                    try {
+                        LOGGER.info("For declarations adding url for $file")
+                        urls.add(file.toURI().toURL())
+                    } catch (e: MalformedURLException) {
+                        LOGGER.error("Unable to create url for $file", e)
+                    }
+                }
             }
-             */
         }
         return URLClassLoader(urls.toTypedArray(), Thread.currentThread().contextClassLoader)
     }
@@ -376,9 +392,9 @@ open class GenerateDeclarationsTask : DefaultTask() {
         val fullName = ci.getName()
         mType["fullName"] = fullName
         mType["name"] = fullName.substring(fullName.lastIndexOf('.') + 1)
-        if (ci.implementsInterface("java.util.Collection")) {
+        if (ci.implementsInterface("kotlin.collections.Collection")) {
             mType["isCollection"] = true
-            mType["isOrdered"] = "java.util.List" == ci.getName()
+            mType["isOrdered"] = "kotlin.collections.List" == ci.getName()
 
             val et = this.createPropertyType(tArgs[0].getTypeSignature(), false) // what is isRef here!
             LOGGER.info("Collection with elementType " + tArgs[0].getTypeSignature())
@@ -448,7 +464,13 @@ open class GenerateDeclarationsTask : DefaultTask() {
                         mType["elementType"] = elementTypes
                     }
                 }
-                else -> throw RuntimeException("cannot handle property type ${ktype::class} ${ktype}")
+                is KTypeParameter -> {
+                    mType["name"] = kclass.name
+                    mType["qualifiedName"] = kclass.name
+                    mType["isSamePackage"] = true
+                    mType["isCollection"] = false
+                }
+                else -> throw RuntimeException("cannot handle property type ${kclass!!::class} ${ktype}")
             }
         //}
         /*
