@@ -40,6 +40,7 @@ class GeneratorPlugin : Plugin<ProjectInternal> {
             gt.jvmName = ext.jvmName
             gt.classPatterns = ext.classPatterns
             gt.typeMapping = ext.typeMapping
+            gt.dependencies = ext.dependencies
         }
 
 

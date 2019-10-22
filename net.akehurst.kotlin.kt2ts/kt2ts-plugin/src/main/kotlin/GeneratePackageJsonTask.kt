@@ -33,41 +33,6 @@ open class GeneratePackageJsonTask : DefaultTask() {
     companion object {
         val NAME = "generatePackageJsonWithTypes"
         private val LOGGER = LoggerFactory.getLogger(GeneratePackageJsonTask::class.java)
-
-        fun execute(_packageJsonFile: File, _moduleGroup: String, _moduleName: String, _moduleVersion: String) {
-            println("$_packageJsonFile, $_moduleName, $_moduleVersion")
-            val file = _packageJsonFile
-            val mainFileName = if (_moduleName.endsWith("-js")) _moduleName.substringBeforeLast("-js") else _moduleName
-            val json = readOrCreatePackageJson(file, _moduleName, _moduleVersion, "$_moduleGroup-$mainFileName")
-            val mutable = mutableMapOf<String, JsonElement>()
-            mutable.putAll(json)
-            mutable["types"] = JsonLiteral("./${_moduleGroup}-${_moduleName}.d.ts")
-            val newJson = JsonObject(mutable)
-
-            file.printWriter().use { out ->
-                out.println(Json.indented.stringify(JsonObjectSerializer, newJson))
-            }
-        }
-
-        private fun readOrCreatePackageJson(file: File, _moduleName: String, _moduleVersion: String, mainFileName:String): JsonObject {
-            val json = Json(JsonConfiguration.Stable)
-            return if (file.exists()) {
-                val json = Json(JsonConfiguration.Stable)
-                json.parseJson(file.readText()).jsonObject
-            } else {
-                LOGGER.info("Creating new file $file")
-                file.printWriter().use { out ->
-                    out.println("""
-                {
-                    "name": "${_moduleName}",
-                    "version": "${_moduleVersion}",
-                    "main": "./${mainFileName}.js"
-                }
-                """.trimIndent())
-                }
-                json.parseJson(file.readText()).jsonObject
-            }
-        }
     }
 
     @get:OutputFile
@@ -82,18 +47,59 @@ open class GeneratePackageJsonTask : DefaultTask() {
     @get:Input
     var moduleVersion = project.objects.property(String::class.java)
 
+    @get:Input
+    var mainFileName = project.objects.property(String::class.java)
+
     init {
         this.group = "generate"
         this.description = "Generate package.json file that defines 'types', or modify existing package.json file to add it"
         this.moduleName.set(project.name)
-        this.moduleGroup.set( project.group as String )
+        this.moduleGroup.set(project.group as String)
         this.moduleVersion.set(project.version as String)
+        val defaultMainFileName = if (moduleName.get().endsWith("-js")) {
+            "${moduleGroup.get()}-${moduleName.get().substringBeforeLast("-js")}.js"
+        } else {
+            "${moduleGroup.get()}-${moduleName.get()}.js"
+        }
+        this.mainFileName.set(defaultMainFileName)
     }
 
     @TaskAction
     internal fun exec() {
-        LOGGER.info("Executing $NAME")
-        execute(packageJsonFile.get().asFile, moduleGroup.get(), moduleName.get(), moduleVersion.get())
+        val _packageJsonFile = packageJsonFile.get().asFile
+        val _moduleGroup = moduleGroup.get()
+        val _moduleName = moduleName.get()
+        val _moduleVersion = moduleVersion.get()
+        val _mainFileName = mainFileName.get()
+
+        val json = readOrCreatePackageJson(_packageJsonFile, _moduleName, _moduleVersion, _mainFileName)
+        val mutable = mutableMapOf<String, JsonElement>()
+        mutable.putAll(json)
+        mutable["types"] = JsonLiteral("./${_moduleGroup}-${_moduleName}.d.ts")
+        val newJson = JsonObject(mutable)
+
+        _packageJsonFile.printWriter().use { out ->
+            out.println(Json.indented.stringify(JsonObjectSerializer, newJson))
+        }
     }
 
+    private fun readOrCreatePackageJson(file: File, _moduleName: String, _moduleVersion: String, mainFileName: String): JsonObject {
+        val json = Json(JsonConfiguration.Stable)
+        return if (file.exists()) {
+            val json = Json(JsonConfiguration.Stable)
+            json.parseJson(file.readText()).jsonObject
+        } else {
+            LOGGER.info("Creating new file $file")
+            file.printWriter().use { out ->
+                out.println("""
+                {
+                    "name": "${_moduleName}",
+                    "version": "${_moduleVersion}",
+                    "main": "./${mainFileName}"
+                }
+                """.trimIndent())
+            }
+            json.parseJson(file.readText()).jsonObject
+        }
+    }
 }

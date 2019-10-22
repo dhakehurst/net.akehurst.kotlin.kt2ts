@@ -51,9 +51,10 @@ open class GeneratorPluginExtension(objects: ObjectFactory)  {
     var declarationsFile = objects.fileProperty()
     var classPatterns = objects.listProperty(String::class.java)
     var typeMapping = objects.mapProperty(String::class.java,String::class.java)
+    var dependencies = objects.listProperty(String::class.java)
 
     init {
-        this.overwrite.set(false)
+        this.overwrite.set(true)
         this.localOnly.set(true)
         this.jvmName.set("jvm")
         this.templateFileName.set("template.hbs")
@@ -63,7 +64,12 @@ open class GeneratorPluginExtension(objects: ObjectFactory)  {
                 "kotlin.Int" to "number",
                 "kotlin.Float" to "number",
                 "kotlin.Double" to "number",
-                "kotlin.Boolean" to "boolean"
+                "kotlin.Boolean" to "boolean",
+                "kotlin.Throwable" to "Error",
+                "kotlin.Exception" to "Error",
+                "kotlin.RuntimeException" to "Error",
+                "java.lang.Exception" to "Error",
+                "java.lang.RuntimeException" to "Error"
         ))
     }
 

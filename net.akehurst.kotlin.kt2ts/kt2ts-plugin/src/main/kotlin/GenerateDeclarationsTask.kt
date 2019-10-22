@@ -40,10 +40,12 @@ import java.net.URLClassLoader
 import java.util.*
 import kotlin.Comparator
 import kotlin.reflect.KClass
+import kotlin.reflect.KClassifier
 import kotlin.reflect.KType
 import kotlin.reflect.KTypeParameter
 import kotlin.reflect.full.isSubclassOf
 import kotlin.reflect.full.memberProperties
+import kotlin.reflect.full.superclasses
 import kotlin.streams.toList
 
 class KtMetaModule(
@@ -88,11 +90,15 @@ open class GenerateDeclarationsTask : DefaultTask() {
     @get:Optional
     var typeMapping = project.objects.mapProperty(String::class.java, String::class.java)
 
+    @get:Input
+    @get:Optional
+    var dependencies = project.objects.listProperty(String::class.java)
+
     init {
         this.group = "generate"
         this.description = "Generate typescript declaration file (*.d.ts) from kotlin classes"
 
-        this.overwrite.set(false)
+        this.overwrite.set(true)
         this.localOnly.set(true)
         this.jvmName.set("jvm")
         //this.templateDir.set(null as Directory?)
@@ -103,7 +109,12 @@ open class GenerateDeclarationsTask : DefaultTask() {
                 "kotlin.Int" to "number",
                 "kotlin.Float" to "number",
                 "kotlin.Double" to "number",
-                "kotlin.Boolean" to "boolean"
+                "kotlin.Boolean" to "boolean",
+                "kotlin.Throwable" to "Error",
+                "kotlin.Exception" to "Error",
+                "kotlin.RuntimeException" to "Error",
+                "java.lang.Exception" to "Error",
+                "java.lang.RuntimeException" to "Error"
         ))
     }
 
@@ -125,7 +136,7 @@ open class GenerateDeclarationsTask : DefaultTask() {
         if (outputFile.exists() && overwrite.get().not()) {
             LOGGER.info("Skipping $outputFile as it exists, set overwrite=true to overwrite the file")
         } else {
-            if(outputFile.exists()) {
+            if (outputFile.exists()) {
                 LOGGER.info("Overwriting existing $outputFile, set overwrite=false to keep the orginal")
             }
             val ftl = when {
@@ -158,76 +169,77 @@ open class GenerateDeclarationsTask : DefaultTask() {
             }
         }
     }
-/*
-    private fun createModel2(classPatterns: List<String>): Map<String, Any> {
-        LOGGER.info("Scanning classpath")
-        LOGGER.info("Including:")
-        classPatterns.forEach {
-            LOGGER.info("  ${it}")
-        }
 
-        val modules = fetchModules()
-        modules.forEach { moduleName, ktModule ->
-            println(moduleName)
-            ktModule.classes.forEach { cls ->
-                println("  $cls")
-            }
-        }
-
-        val model = mutableMapOf<String, Any>()
-
-        return model
-    }
-
-    private fun fetchModules(): Map<String, KtMetaModule> {
-        val urls = mutableListOf<URL>()
-        val moduleNames = mutableListOf<String>()
-        val localBuild = project.buildDir.resolve("classes/kotlin/metadata/main")
-        val localUrl = localBuild.absoluteFile.toURI().toURL() //URL("file://"+localBuild.absoluteFile+"/")
-        urls.add(localUrl)
-        moduleNames.add(project.name)
-
-        val configurationName = "metadataDefault"
-        val c = this.project.configurations.findByName(configurationName) ?: throw RuntimeException("Cannot find $configurationName configuration")
-        c.isCanBeResolved = true
-        for (file in c.resolve()) {
-            try {
-                LOGGER.debug("Adding url for $file")
-                urls.add(file.toURI().toURL())
-                moduleNames.add(project.name)
-            } catch (e: MalformedURLException) {
-                LOGGER.error("Unable to create url for $file", e)
+    /*
+        private fun createModel2(classPatterns: List<String>): Map<String, Any> {
+            LOGGER.info("Scanning classpath")
+            LOGGER.info("Including:")
+            classPatterns.forEach {
+                LOGGER.info("  ${it}")
             }
 
-        }
-        moduleNames.addAll(c.allDependencies.map { it.name })
-        val cl = URLClassLoader(urls.toTypedArray(), Thread.currentThread().contextClassLoader)
-
-        val modules = moduleNames.associate { moduleName ->
-            val moduleFileBytes = cl.getResourceAsStream("META-INF/$moduleName.kotlin_module").readAllBytes()
-            val module = fetchModule(moduleName, moduleFileBytes)
-            classPatterns.get().forEach {
-                val pathPat = it.replace(".", "/")
-                LOGGER.info("Finding class metadata in $pathPat")
-                cl.getResourceAsStream("$pathPat").use { dirStrm ->
-                    val files = getResourceFiles(dirStrm)
-                    files.forEach {fileName ->
-                       val clsMetaBytes =  cl.getResourceAsStream("$pathPat/fileName").readAllBytes()
-                    }
-
+            val modules = fetchModules()
+            modules.forEach { moduleName, ktModule ->
+                println(moduleName)
+                ktModule.classes.forEach { cls ->
+                    println("  $cls")
                 }
             }
-            Pair(moduleName, module)
-        }
-        return modules
-    }
 
-    private fun fetchModule(moduleName: String, moduleFileBytes: ByteArray): KtMetaModule {
-        val metadata = KotlinModuleMetadata.read(moduleFileBytes) ?: throw RuntimeException("Module metadata not found for $moduleName")
-        val kmModule = metadata.toKmModule()
-        return KtMetaModule(kmModule)
-    }
-*/
+            val model = mutableMapOf<String, Any>()
+
+            return model
+        }
+
+        private fun fetchModules(): Map<String, KtMetaModule> {
+            val urls = mutableListOf<URL>()
+            val moduleNames = mutableListOf<String>()
+            val localBuild = project.buildDir.resolve("classes/kotlin/metadata/main")
+            val localUrl = localBuild.absoluteFile.toURI().toURL() //URL("file://"+localBuild.absoluteFile+"/")
+            urls.add(localUrl)
+            moduleNames.add(project.name)
+
+            val configurationName = "metadataDefault"
+            val c = this.project.configurations.findByName(configurationName) ?: throw RuntimeException("Cannot find $configurationName configuration")
+            c.isCanBeResolved = true
+            for (file in c.resolve()) {
+                try {
+                    LOGGER.debug("Adding url for $file")
+                    urls.add(file.toURI().toURL())
+                    moduleNames.add(project.name)
+                } catch (e: MalformedURLException) {
+                    LOGGER.error("Unable to create url for $file", e)
+                }
+
+            }
+            moduleNames.addAll(c.allDependencies.map { it.name })
+            val cl = URLClassLoader(urls.toTypedArray(), Thread.currentThread().contextClassLoader)
+
+            val modules = moduleNames.associate { moduleName ->
+                val moduleFileBytes = cl.getResourceAsStream("META-INF/$moduleName.kotlin_module").readAllBytes()
+                val module = fetchModule(moduleName, moduleFileBytes)
+                classPatterns.get().forEach {
+                    val pathPat = it.replace(".", "/")
+                    LOGGER.info("Finding class metadata in $pathPat")
+                    cl.getResourceAsStream("$pathPat").use { dirStrm ->
+                        val files = getResourceFiles(dirStrm)
+                        files.forEach {fileName ->
+                           val clsMetaBytes =  cl.getResourceAsStream("$pathPat/fileName").readAllBytes()
+                        }
+
+                    }
+                }
+                Pair(moduleName, module)
+            }
+            return modules
+        }
+
+        private fun fetchModule(moduleName: String, moduleFileBytes: ByteArray): KtMetaModule {
+            val metadata = KotlinModuleMetadata.read(moduleFileBytes) ?: throw RuntimeException("Module metadata not found for $moduleName")
+            val kmModule = metadata.toKmModule()
+            return KtMetaModule(kmModule)
+        }
+    */
     private fun getResourceFiles(dirStrm: InputStream): List<String> {
         val filenames = BufferedReader(InputStreamReader(dirStrm)).lines().toList()
         return filenames;
@@ -272,6 +284,13 @@ open class GenerateDeclarationsTask : DefaultTask() {
         val namespaceGroups = sorted.groupBy { it.packageName }
 
         val model = mutableMapOf<String, Any>()
+
+        val imports = dependencies.get().map {
+            val m = mutableMapOf<String, Any>()
+            m["name"] = it
+            m
+        }
+        model["import"] = imports
         val namespaces = mutableListOf<Map<String, Any>>()
         model["namespace"] = namespaces
         namespaceGroups.forEach { (nsn, classes) ->
@@ -279,59 +298,63 @@ open class GenerateDeclarationsTask : DefaultTask() {
             namespaces.add(namespace)
             val datatypes = mutableListOf<Map<String, Any>>()
             namespace["name"] = nsn
+            //TODO: this won't work if not enough subpackages
+            // fix to have proper nested namespaces
+            namespace["headName"] = nsn.substringBefore(".")
+            namespace["tailName"] = nsn.substringAfter(".")
             namespace["datatype"] = datatypes
             for (cls in classes) {
                 val kclass: KClass<*> = clForAll.loadClass(cls.name).kotlin
                 val pkgName = kclass.qualifiedName!!.substringBeforeLast('.')
-//               println("KClass: ${kclass.simpleName} ${kclass.isData}")
-                //               kclass.memberProperties.forEach {
-                //                   println("    ${it.name} : ${it.returnType}")
-                //               }
 
-                LOGGER.debug("Adding Class " + cls.getName())
-                val dtModel = mutableMapOf<String, Any>()
-                datatypes.add(dtModel)
-                dtModel["name"] = kclass.simpleName!!
-                dtModel["fullName"] = kclass.qualifiedName!!
-                dtModel["isInterface"] = cls.isInterface
-                dtModel["isAbstract"] = kclass.isAbstract
-                dtModel["isEnum"] = cls.isEnum
-
-                val extends_ = ArrayList<Map<String, Any>>()
-                dtModel["extends"] = extends_
-                if (null != cls.getSuperclass()) {
-                    extends_.add(this.createPropertyType(cls.getSuperclass(), ArrayList<TypeArgument>(), false))
-                }
-                val implements_ = ArrayList<Map<String, Any>>()
-                dtModel["implements"] = implements_
-                for (i in cls.getInterfaces()) {
-                    //if (i.hasAnnotation(Datatype::class.java!!.getName())) {
-                    implements_.add(this.createPropertyType(i, ArrayList<TypeArgument>(), false))
-                    //}
+                var reflectable = true
+                try {
+                    //this will throw exception if kotlin reflection not possible
+                    kclass.isAbstract
+                } catch (ex:Throwable) {
+                    reflectable = false
                 }
 
-                val property = mutableListOf<Map<String, Any>>()
-                dtModel["property"] = property
-                kclass.memberProperties.forEach {
-                    //    println("    ${it.name} : ${it.returnType}")
-                    val prop = mutableMapOf<String, Any>()
-                    prop["name"] = it.name
-                    prop["type"] = this.createPropertyType2(it.returnType, pkgName)
-                    property.add(prop)
-                }
+                if (reflectable) {
+                    LOGGER.debug("Adding Class " + cls.getName())
+                    val dtModel = mutableMapOf<String, Any>()
+                    datatypes.add(dtModel)
+                    dtModel["name"] = kclass.simpleName!!
+                    dtModel["fullName"] = kclass.qualifiedName!!
+                    dtModel["isInterface"] = cls.isInterface
+                    dtModel["isAbstract"] = kclass.isAbstract
+                    dtModel["isEnum"] = cls.isEnum
 
-                /*
-                for (mi in cls.getMethodInfo()) {
-
-                    if (mi.parameterInfo.size === 0 && mi.getName().startsWith("get")) {
-                        val meth = HashMap<String, Any>()
-                        meth["name"] = this.createMemberName(mi.getName())
-                        val propertyTypeSig = mi.getTypeSignatureOrTypeDescriptor().getResultType()
-                        meth["type"] = this.createPropertyType(propertyTypeSig, true)
-                        property.add(meth)
+                    val extends_ = ArrayList<Map<String, Any>>()
+                    val implements_ = ArrayList<Map<String, Any>>()
+                    dtModel["extends"] = extends_
+                    dtModel["implements"] = implements_
+                    kclass.supertypes.forEach { ktype ->
+                        val kclass = ktype.classifier as KClass<*>
+                        if (kclass == Any::class) {
+                            //donothing
+                        } else {
+                            val mt = this.createPropertyType2(ktype, pkgName)
+                            if (kclass.java.isInterface) {
+                                implements_.add(mt)
+                            } else {
+                                extends_.add(mt)
+                            }
+                        }
                     }
+
+                    val property = mutableListOf<Map<String, Any>>()
+                    dtModel["property"] = property
+                    kclass.memberProperties.forEach {
+                        //    println("    ${it.name} : ${it.returnType}")
+                        val prop = mutableMapOf<String, Any>()
+                        prop["name"] = it.name
+                        prop["type"] = this.createPropertyType2(it.returnType, pkgName)
+                        property.add(prop)
+                    }
+                } else {
+                    LOGGER.info("Skipping Class ${cls.name} because kotlin reflection not supported on it")
                 }
-                 */
             }
         }
         return model
@@ -343,18 +366,18 @@ open class GenerateDeclarationsTask : DefaultTask() {
         val localBuild = project.buildDir.resolve("classes/kotlin/${jvmName.get()}/main")//project.tasks.getByName("jvm8MainClasses").outputs.files
         val localUrl = localBuild.absoluteFile.toURI().toURL() //URL("file://"+localBuild.absoluteFile+"/")
         urls.add(localUrl)
-            val configurationName = jvmName.get() + "RuntimeClasspath"
-            val c = this.project.configurations.findByName(configurationName) ?: throw RuntimeException("Cannot find $configurationName configuration")
-            //c.isCanBeResolved = true
-            c.resolvedConfiguration.resolvedArtifacts.forEach { dep ->
-                    val file = dep.file
-                    try {
-                        LOGGER.info("For classpath adding url for $file")
-                        urls.add(file.toURI().toURL())
-                    } catch (e: MalformedURLException) {
-                        LOGGER.error("Unable to create url for $file", e)
-                    }
+        val configurationName = jvmName.get() + "RuntimeClasspath"
+        val c = this.project.configurations.findByName(configurationName) ?: throw RuntimeException("Cannot find $configurationName configuration")
+        //c.isCanBeResolved = true
+        c.resolvedConfiguration.resolvedArtifacts.forEach { dep ->
+            val file = dep.file
+            try {
+                LOGGER.info("For classpath adding url for $file")
+                urls.add(file.toURI().toURL())
+            } catch (e: MalformedURLException) {
+                LOGGER.error("Unable to create url for $file", e)
             }
+        }
         return URLClassLoader(urls.toTypedArray(), Thread.currentThread().contextClassLoader)
     }
 
@@ -369,7 +392,7 @@ open class GenerateDeclarationsTask : DefaultTask() {
             val c = this.project.configurations.findByName(configurationName) ?: throw RuntimeException("Cannot find $configurationName configuration")
             //c.isCanBeResolved = true
             c.resolvedConfiguration.resolvedArtifacts.forEach { dep ->
-                if(forModules.isEmpty() || forModules.contains(dep.name)) {
+                if (forModules.isEmpty() || forModules.contains(dep.name)) {
                     val file = dep.file
                     try {
                         LOGGER.info("For declarations adding url for $file")
@@ -387,7 +410,7 @@ open class GenerateDeclarationsTask : DefaultTask() {
         return methodName.substring(3, 4).toLowerCase() + methodName.substring(4)
     }
 
-    private fun createPropertyType(ci: ClassInfo, tArgs: List<TypeArgument>, isRef: Boolean): MutableMap<String, Any> {
+    private fun _createPropertyType(ci: ClassInfo, tArgs: List<TypeArgument>, isRef: Boolean): MutableMap<String, Any> {
         val mType = mutableMapOf<String, Any>()
         val fullName = ci.getName()
         mType["fullName"] = fullName
@@ -396,7 +419,7 @@ open class GenerateDeclarationsTask : DefaultTask() {
             mType["isCollection"] = true
             mType["isOrdered"] = "kotlin.collections.List" == ci.getName()
 
-            val et = this.createPropertyType(tArgs[0].getTypeSignature(), false) // what is isRef here!
+            val et = this._createPropertyType(tArgs[0].getTypeSignature(), false) // what is isRef here!
             LOGGER.info("Collection with elementType " + tArgs[0].getTypeSignature())
             mType["elementType"] = et
 
@@ -407,7 +430,7 @@ open class GenerateDeclarationsTask : DefaultTask() {
         return mType
     }
 
-    private fun createPropertyType(typeSig: TypeSignature, isRef: Boolean): Map<String, Any> {
+    private fun _createPropertyType(typeSig: TypeSignature, isRef: Boolean): Map<String, Any> {
         var mType: MutableMap<String, Any> = mutableMapOf()
         if (typeSig is BaseTypeSignature) {
             val bts = typeSig as BaseTypeSignature
@@ -418,7 +441,7 @@ open class GenerateDeclarationsTask : DefaultTask() {
             mType["name"] = "array"
             mType["fullName"] = "array"
             mType["isCollection"] = true
-            mType["elementType"] = this.createPropertyType(rts.getElementTypeSignature(), isRef)
+            mType["elementType"] = this._createPropertyType(rts.getElementTypeSignature(), isRef)
         } else if (typeSig is ClassRefTypeSignature) {
             val cts = typeSig as ClassRefTypeSignature
             if (null == cts.getClassInfo()) {
@@ -427,7 +450,7 @@ open class GenerateDeclarationsTask : DefaultTask() {
                 mType["name"] = fullName.substring(fullName.lastIndexOf('.') + 1)
                 LOGGER.error("Unable to find class info for " + cts.getFullyQualifiedClassName())
             } else {
-                mType = this.createPropertyType(cts.getClassInfo(), cts.getTypeArguments(), isRef)
+                mType = this._createPropertyType(cts.getClassInfo(), cts.getTypeArguments(), isRef)
             }
         } else {
         }
@@ -443,68 +466,59 @@ open class GenerateDeclarationsTask : DefaultTask() {
 
     }
 
-    private fun createPropertyType2(ktype: KType, owningTypePackageName: String): Map<String, Any> {
+    private fun createPropertyType2(kclass: KClass<*>, owningTypePackageName: String): Map<String, Any> {
         var mType: MutableMap<String, Any> = mutableMapOf()
-        val kclass = ktype.classifier
-        //if (null==kclass) {
-        //    mType["name"] = "any"
-        //    mType["qualifiedName"] = "any"
-        //} else {
-            when (kclass) {
-                is KClass<*> -> {
-                    val pkgName = kclass.qualifiedName!!.substringBeforeLast('.')
-                    mType["name"] = kclass.simpleName!!
-                    mType["qualifiedName"] = kclass.qualifiedName!!
-                    mType["isCollection"] = kclass.isSubclassOf(Collection::class)
-                    mType["isSamePackage"] = pkgName == owningTypePackageName
-                    if (kclass.isSubclassOf(Collection::class)) {
-                        val elementTypes = ktype.arguments.map {
-                            this.createPropertyType2(it.type!!, owningTypePackageName)
-                        }
-                        mType["elementType"] = elementTypes
-                    }
-                }
-                is KTypeParameter -> {
-                    mType["name"] = kclass.name
-                    mType["qualifiedName"] = kclass.name
-                    mType["isSamePackage"] = true
-                    mType["isCollection"] = false
-                }
-                else -> throw RuntimeException("cannot handle property type ${kclass!!::class} ${ktype}")
-            }
-        //}
-        /*
-        if (typeSig is BaseTypeSignature) {
-            val bts = typeSig as BaseTypeSignature
-            mType["name"] = bts.getTypeStr()
-            mType["fullName"] = bts.getTypeStr()
-        } else if (typeSig is ArrayTypeSignature) {
-            val rts = typeSig as ArrayTypeSignature
-            mType["name"] = "array"
-            mType["fullName"] = "array"
-            mType["isCollection"] = true
-            mType["elementType"] = this.createPropertyType(rts.getElementTypeSignature(), isRef)
-        } else if (typeSig is ClassRefTypeSignature) {
-            val cts = typeSig as ClassRefTypeSignature
-            if (null == cts.getClassInfo()) {
-                val fullName = cts.getFullyQualifiedClassName()
-                mType["fullName"] = fullName
-                mType["name"] = fullName.substring(fullName.lastIndexOf('.') + 1)
-                LOGGER.error("Unable to find class info for " + cts.getFullyQualifiedClassName())
-            } else {
-                mType = this.createPropertyType(cts.getClassInfo(), cts.getTypeArguments(), isRef)
-            }
-        } else {
-        }
-*/
+        val pkgName = kclass.qualifiedName!!.substringBeforeLast('.')
+        mType["name"] = kclass.simpleName!!
+        mType["qualifiedName"] = kclass.qualifiedName!!
+        mType["isCollection"] = kclass.isSubclassOf(Collection::class)
+        mType["isSamePackage"] = pkgName == owningTypePackageName
         val mappedName = this.typeMapping.get()[mType["qualifiedName"]]
-        if (null == mappedName) {
-            return mType
+        return if (null == mappedName) {
+            mType
         } else {
             LOGGER.debug("Mapping " + mType["name"] + " to " + mappedName)
             mType["name"] = mappedName
             mType["qualifiedName"] = mappedName
-            return mType
+            mType
+        }
+    }
+
+    private fun createPropertyType2(ktype: KType, owningTypePackageName: String): Map<String, Any> {
+        var mType: MutableMap<String, Any> = mutableMapOf()
+        val kclass = ktype.classifier
+
+        when (kclass) {
+            is KClass<*> -> {
+                val pkgName = kclass.qualifiedName!!.substringBeforeLast('.')
+                mType["name"] = kclass.simpleName!!
+                mType["qualifiedName"] = kclass.qualifiedName!!
+                mType["isCollection"] = kclass.isSubclassOf(Collection::class)
+                mType["isSamePackage"] = pkgName == owningTypePackageName
+                if (kclass.isSubclassOf(Collection::class)) {
+                    val elementTypes = ktype.arguments.map {
+                        this.createPropertyType2(it.type!!, owningTypePackageName)
+                    }
+                    mType["elementType"] = elementTypes
+                }
+            }
+            is KTypeParameter -> {
+                mType["name"] = kclass.name
+                mType["qualifiedName"] = kclass.name
+                mType["isSamePackage"] = true
+                mType["isCollection"] = false
+            }
+            else -> throw RuntimeException("cannot handle property type ${kclass!!::class} ${ktype}")
+        }
+
+        val mappedName = this.typeMapping.get()[mType["qualifiedName"]]
+        return if (null == mappedName) {
+            mType
+        } else {
+            LOGGER.debug("Mapping " + mType["name"] + " to " + mappedName)
+            mType["name"] = mappedName
+            mType["qualifiedName"] = mappedName
+            mType
         }
 
     }

@@ -1,41 +1,38 @@
+{{#each import~}}
+import '{{name}}';
+{{/each}}
 {{#each namespace~}}
-declare namespace {{name}} {
-  {{#each datatype~}}
-    {{#if isEnum~}}
-        export enum {{name}} {
-        }
-    {{else~}}
-        export {{#if isAbstract}}abstract{{/if}} class {{name}}{{#if extends}} extends {{#each extends~}}
-          {{name}}
-        {{~/each}} {{/if}} {{#if implements}} implements {{#each implements~}}
-          {{name}}{{#unless @last}},{{/unless}}
-        {{~/each}} {{/if}} {
-          {{#each property~}}
-            {{name}}: {{#if type.isCollection~}}
-                        {{#if type.isOrdered~}}
-                          {{#if type.elementType.isCollection~}}
-                            any[]
+declare namespace {{headName}} {
+    export namespace {{tailName}} {
+      {{#each datatype~}}
+        {{#if isEnum~}}
+            export enum {{name}} {
+            }
+        {{else~}}
+            export {{#if isAbstract}}abstract{{/if}} class {{name}}{{#if extends}} extends {{#each extends~}}
+              {{#if isSamePackage}}{{name}}{{else}}{{qualifiedName}}{{/if}}
+            {{~/each}} {{/if}} {{#if implements}} implements {{#each implements~}}
+              {{#if isSamePackage}}{{name}}{{else}}{{qualifiedName}}{{/if}}{{#unless @last}},{{/unless}}
+            {{~/each}} {{/if}} {
+              {{#each property~}}
+                {{name}}: {{#if type.isCollection~}}
+                              {{type.qualifiedName}}<{{#each type.elementType~}} {{#if isSamePackage~}}
+                                                 {{name}}{{#unless @last}},{{/unless}}
+                                               {{~else~}}
+                                                 {{qualifiedName}}{{#unless @last}},{{/unless}}
+                                               {{~/if~}}
+                                            {{~/each}}>
+                          {{~else if type.isEnum~}}
+                             any /* enum {{type.name}} */
+                          {{~else if type.isSamePackage~}}
+                            {{type.name}}
                           {{~else~}}
-                            {{type.elementType.name}}[]
-                          {{~/if~}}
-                        {{~else~}}
-                          {{type.name}}<{{#each type.elementType~}} {{#if isSamePackage~}}
-                                             {{name}}{{#unless @last}},{{/unless}}
-                                           {{~else~}}
-                                             {{qualifiedName}}{{#unless @last}},{{/unless}}
-                                           {{~/if~}}
-                                        {{~/each}}>
-                        {{~/if~}}
-                      {{~else if type.isEnum~}}
-                         any /* enum {{type.name}} */
-                      {{~else if type.isSamePackage~}}
-                        {{type.name}}
-                      {{~else~}}
-                        {{type.qualifiedName}}
-                      {{~/if~}};
-          {{/each}}
-        }
-    {{/if}}
-  {{/each}}
+                            {{type.qualifiedName}}
+                          {{~/if~}};
+              {{/each}}
+            }
+        {{/if}}
+      {{/each}}
+    }
 }
 {{/each}}
