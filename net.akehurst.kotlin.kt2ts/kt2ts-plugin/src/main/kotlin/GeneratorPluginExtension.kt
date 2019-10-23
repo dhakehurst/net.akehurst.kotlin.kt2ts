@@ -42,9 +42,14 @@ open class GeneratorPluginExtension(objects: ObjectFactory)  {
     var moduleOnly = objects.listProperty(String::class.java)
 
     /**
-     * name of the jvm configuration [default 'jvm']
+     * name of the jvm configuration for this module (locally build classes) [default 'jvm']
      */
-    var jvmName = objects.property(String::class.java) //"commonMainImplementation"
+    var localJvmName = objects.property(String::class.java) //"commonMainImplementation"
+
+    /**
+     * name of the configuration to use for finding dependend modules
+     */
+    var modulesConfigurationName = objects.property(String::class.java)
     var templateFileName = objects.property(String::class.java) //"template.hbs"
     var templateDir = objects.directoryProperty()
     var packageJsonFile = objects.fileProperty()
@@ -56,7 +61,8 @@ open class GeneratorPluginExtension(objects: ObjectFactory)  {
     init {
         this.overwrite.set(true)
         this.localOnly.set(true)
-        this.jvmName.set("jvm")
+        this.localJvmName.set("jvm")
+        this.modulesConfigurationName.set("jvmRuntimeClasspath")
         this.templateFileName.set("template.hbs")
         this.typeMapping.set(mapOf(
                 "kotlin.Any" to "any",

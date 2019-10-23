@@ -1,38 +1,50 @@
 {{#each import~}}
-import '{{name}}';
+import * as {{moduleVar}} from '{{name}}';
 {{/each}}
 {{#each namespace~}}
-declare namespace {{headName}} {
-    export namespace {{tailName}} {
+export declare namespace {{name}} {
       {{#each datatype~}}
         {{#if isEnum~}}
             export enum {{name}} {
             }
         {{else~}}
             export {{#if isAbstract}}abstract{{/if}} class {{name}}{{#if extends}} extends {{#each extends~}}
-              {{#if isSamePackage}}{{name}}{{else}}{{qualifiedName}}{{/if}}
+              {{#if isSamePackage}}{{name}}{{else if type.isSameModule}}{{qualifiedName}}{{else}}{{fullyQualifiedName}}{{/if}}
             {{~/each}} {{/if}} {{#if implements}} implements {{#each implements~}}
-              {{#if isSamePackage}}{{name}}{{else}}{{qualifiedName}}{{/if}}{{#unless @last}},{{/unless}}
+              {{#if isSamePackage}}{{name}}{{else if type.isSameModule}}{{qualifiedName}}{{else}}{{fullyQualifiedName}}{{/if}}{{#unless @last}},{{/unless}}
             {{~/each}} {{/if}} {
               {{#each property~}}
                 {{name}}: {{#if type.isCollection~}}
-                              {{type.qualifiedName}}<{{#each type.elementType~}} {{#if isSamePackage~}}
+                               {{#if type.isSamePackage~}}
+                                 {{type.name}}
+                               {{~else if type.isSameModule~}}
+                                 {{type.qualifiedName}}
+                               {{~else~}}
+                                 {{type.fullyQualifiedName}}
+                               {{~/if~}}
+                               <{{#each type.elementType~}}
+                                               {{#if isSamePackage~}}
                                                  {{name}}{{#unless @last}},{{/unless}}
-                                               {{~else~}}
+                                               {{~else if isSameModule~}}
                                                  {{qualifiedName}}{{#unless @last}},{{/unless}}
+                                               {{~else~}}
+                                                 {{fullyQualifiedName}}{{#unless @last}},{{/unless}}
                                                {{~/if~}}
                                             {{~/each}}>
                           {{~else if type.isEnum~}}
-                             any /* enum {{type.name}} */
-                          {{~else if type.isSamePackage~}}
-                            {{type.name}}
+                             any /* enum {{name}} */
                           {{~else~}}
-                            {{type.qualifiedName}}
+                               {{#if type.isSamePackage~}}
+                                 {{type.name}}
+                               {{~else if type.isSameModule~}}
+                                 {{type.qualifiedName}}
+                               {{~else~}}
+                                 {{type.fullyQualifiedName}}
+                               {{~/if~}}
                           {{~/if~}};
               {{/each}}
             }
         {{/if}}
       {{/each}}
-    }
 }
 {{/each}}

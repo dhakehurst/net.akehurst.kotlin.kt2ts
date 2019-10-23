@@ -37,7 +37,8 @@ class GeneratorPlugin : Plugin<ProjectInternal> {
             gt.declarationsFile = ext.declarationsFile
             gt.templateDir = ext.templateDir
             gt.templateFileName = ext.templateFileName
-            gt.jvmName = ext.jvmName
+            gt.localJvmName = ext.localJvmName
+            gt.modulesConfigurationName = ext.modulesConfigurationName
             gt.classPatterns = ext.classPatterns
             gt.typeMapping = ext.typeMapping
             gt.dependencies = ext.dependencies

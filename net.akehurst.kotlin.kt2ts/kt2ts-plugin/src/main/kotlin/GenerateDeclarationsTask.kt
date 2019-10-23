@@ -48,6 +48,11 @@ import kotlin.reflect.full.memberProperties
 import kotlin.reflect.full.superclasses
 import kotlin.streams.toList
 
+data class PackageData(
+        val moduleName:String,
+        val qualifiedName:String
+)
+
 class KtMetaModule(
         val metadata: KmModule
 ) {
@@ -71,7 +76,10 @@ open class GenerateDeclarationsTask : DefaultTask() {
     var moduleOnly = project.objects.listProperty(String::class.java)
 
     @get:Input
-    var jvmName = project.objects.property(String::class.java)
+    var localJvmName = project.objects.property(String::class.java)
+
+    @get:Input
+    var modulesConfigurationName = project.objects.property(String::class.java)
 
     @get:Input
     var templateFileName = project.objects.property(String::class.java)
@@ -94,13 +102,16 @@ open class GenerateDeclarationsTask : DefaultTask() {
     @get:Optional
     var dependencies = project.objects.listProperty(String::class.java)
 
+    private var classModuleMap: MutableMap<String, String> = mutableMapOf()
+
     init {
         this.group = "generate"
         this.description = "Generate typescript declaration file (*.d.ts) from kotlin classes"
 
         this.overwrite.set(true)
         this.localOnly.set(true)
-        this.jvmName.set("jvm")
+        this.localJvmName.set("jvm")
+        this.modulesConfigurationName.set("jvmRuntimeClasspath")
         //this.templateDir.set(null as Directory?)
         this.templateFileName.set("template.hbs")
         this.typeMapping.set(mapOf(
@@ -252,6 +263,9 @@ open class GenerateDeclarationsTask : DefaultTask() {
         classPatterns.forEach {
             LOGGER.info("  ${it}")
         }
+
+        createClassModuleMapping() //TODO: this is not very efficient, stuff is scanned more than once, here and further on
+
         val clToGenerate = this.createClassLoaderForDecls()
         val clForAll = this.createClassLoaderForAll()
         val scan = ClassGraph()//
@@ -265,10 +279,10 @@ open class GenerateDeclarationsTask : DefaultTask() {
                 .whitelistPackages(*classPatterns.toTypedArray())//
                 .scan()
         val classInfo = scan.allClasses
+
         LOGGER.info("Building Datatype model for ${classInfo.size} types")
 
         val comparator = Comparator { c1: ClassInfo, c2: ClassInfo ->
-            //println("$c1 - $c2")
             when {
                 c1 == c2 -> 0
                 c1.getSuperclasses().contains(c2) -> 1
@@ -288,12 +302,14 @@ open class GenerateDeclarationsTask : DefaultTask() {
         val imports = dependencies.get().map {
             val m = mutableMapOf<String, Any>()
             m["name"] = it
+            m["moduleVar"] = it.substringBeforeLast("-").replace("-","_")
             m
         }
         model["import"] = imports
         val namespaces = mutableListOf<Map<String, Any>>()
         model["namespace"] = namespaces
         namespaceGroups.forEach { (nsn, classes) ->
+            println(nsn)
             val namespace = mutableMapOf<String, Any>()
             namespaces.add(namespace)
             val datatypes = mutableListOf<Map<String, Any>>()
@@ -304,8 +320,10 @@ open class GenerateDeclarationsTask : DefaultTask() {
             namespace["tailName"] = nsn.substringAfter(".")
             namespace["datatype"] = datatypes
             for (cls in classes) {
+
                 val kclass: KClass<*> = clForAll.loadClass(cls.name).kotlin
                 val pkgName = kclass.qualifiedName!!.substringBeforeLast('.')
+                val moduleName = this.classModuleMap[kclass.qualifiedName!!] ?: "unknown"
 
                 var reflectable = true
                 try {
@@ -316,11 +334,14 @@ open class GenerateDeclarationsTask : DefaultTask() {
                 }
 
                 if (reflectable) {
-                    LOGGER.debug("Adding Class " + cls.getName())
+                    println(cls.name)
+                    LOGGER.debug("Adding Class ${cls.name}")
                     val dtModel = mutableMapOf<String, Any>()
                     datatypes.add(dtModel)
                     dtModel["name"] = kclass.simpleName!!
-                    dtModel["fullName"] = kclass.qualifiedName!!
+                    dtModel["moduleVar"] = moduleName.replace("-", "_")
+                    dtModel["qualifiedName"] = kclass.qualifiedName!!
+                    dtModel["fullyQualifiedName"] = "${dtModel["moduleVar"]}.${dtModel["qualifiedName"]}"
                     dtModel["isInterface"] = cls.isInterface
                     dtModel["isAbstract"] = kclass.isAbstract
                     dtModel["isEnum"] = cls.isEnum
@@ -334,7 +355,7 @@ open class GenerateDeclarationsTask : DefaultTask() {
                         if (kclass == Any::class) {
                             //donothing
                         } else {
-                            val mt = this.createPropertyType2(ktype, pkgName)
+                            val mt = this.createPropertyType2(ktype, PackageData(moduleName, pkgName))
                             if (kclass.java.isInterface) {
                                 implements_.add(mt)
                             } else {
@@ -346,10 +367,9 @@ open class GenerateDeclarationsTask : DefaultTask() {
                     val property = mutableListOf<Map<String, Any>>()
                     dtModel["property"] = property
                     kclass.memberProperties.forEach {
-                        //    println("    ${it.name} : ${it.returnType}")
                         val prop = mutableMapOf<String, Any>()
                         prop["name"] = it.name
-                        prop["type"] = this.createPropertyType2(it.returnType, pkgName)
+                        prop["type"] = this.createPropertyType2(it.returnType, PackageData(moduleName, pkgName))
                         property.add(prop)
                     }
                 } else {
@@ -363,10 +383,10 @@ open class GenerateDeclarationsTask : DefaultTask() {
     private fun createClassLoaderForAll(): URLClassLoader {
         val urls = mutableListOf<URL>()
         val forModules = moduleOnly.get()
-        val localBuild = project.buildDir.resolve("classes/kotlin/${jvmName.get()}/main")//project.tasks.getByName("jvm8MainClasses").outputs.files
+        val localBuild = project.buildDir.resolve("classes/kotlin/${localJvmName.get()}/main")//project.tasks.getByName("jvm8MainClasses").outputs.files
         val localUrl = localBuild.absoluteFile.toURI().toURL() //URL("file://"+localBuild.absoluteFile+"/")
         urls.add(localUrl)
-        val configurationName = jvmName.get() + "RuntimeClasspath"
+        val configurationName = modulesConfigurationName.get()
         val c = this.project.configurations.findByName(configurationName) ?: throw RuntimeException("Cannot find $configurationName configuration")
         //c.isCanBeResolved = true
         c.resolvedConfiguration.resolvedArtifacts.forEach { dep ->
@@ -384,14 +404,16 @@ open class GenerateDeclarationsTask : DefaultTask() {
     private fun createClassLoaderForDecls(): URLClassLoader {
         val urls = mutableListOf<URL>()
         val forModules = moduleOnly.get()
-        val localBuild = project.buildDir.resolve("classes/kotlin/${jvmName.get()}/main")//project.tasks.getByName("jvm8MainClasses").outputs.files
+        println("forModules = $forModules")
+        val localBuild = project.buildDir.resolve("classes/kotlin/${localJvmName.get()}/main")//project.tasks.getByName("jvm8MainClasses").outputs.files
         val localUrl = localBuild.absoluteFile.toURI().toURL() //URL("file://"+localBuild.absoluteFile+"/")
         urls.add(localUrl)
         if (localOnly.get().not()) {
-            val configurationName = jvmName.get() + "RuntimeClasspath"
+            val configurationName = modulesConfigurationName.get()
             val c = this.project.configurations.findByName(configurationName) ?: throw RuntimeException("Cannot find $configurationName configuration")
             //c.isCanBeResolved = true
             c.resolvedConfiguration.resolvedArtifacts.forEach { dep ->
+                println("dep = ${dep.name}")
                 if (forModules.isEmpty() || forModules.contains(dep.name)) {
                     val file = dep.file
                     try {
@@ -406,9 +428,63 @@ open class GenerateDeclarationsTask : DefaultTask() {
         return URLClassLoader(urls.toTypedArray(), Thread.currentThread().contextClassLoader)
     }
 
+    private fun createClassModuleMapping() {
+        val localBuild = project.buildDir.resolve("classes/kotlin/${localJvmName.get()}/main")
+        val localUrl = localBuild.absoluteFile.toURI().toURL()
+        fetchClassesFor(localUrl).forEach {
+            val moduleName = project.name
+            try {
+                this.classModuleMap[it.qualifiedName!!] = moduleName
+            } catch(t:Throwable) {
+                try {
+                    LOGGER.debug("Ignored class ${it}, cannot get qualifiedName")
+                } catch(t:Throwable) {
+                    LOGGER.debug("Ignored class, unknown error")
+                }
+            }
+        }
+
+        val configurationName = modulesConfigurationName.get()
+        val c = this.project.configurations.findByName(configurationName) ?: throw RuntimeException("Cannot find $configurationName configuration")
+        c.resolvedConfiguration.resolvedArtifacts.forEach { dep ->
+            fetchClassesFor(dep.file.toURI().toURL()).forEach {
+                val moduleName = dep.name.substringBeforeLast("-")
+                try {
+                    this.classModuleMap[it.qualifiedName!!] = moduleName
+                } catch(t:Throwable) {
+                    try {
+                        LOGGER.debug("Ignored class ${it}, cannot get qualifiedName")
+                    } catch(t:Throwable) {
+                        LOGGER.debug("Ignored class, unknown error")
+                    }
+                }
+            }
+        }
+    }
+
+    private fun fetchClassesFor(url:URL) : List<KClass<*>> {
+        val cl = URLClassLoader(arrayOf(url))
+        val scan = ClassGraph()//
+                .ignoreParentClassLoaders()
+                .overrideClassLoaders(cl)//
+                .enableClassInfo()//
+                .scan()
+        val classInfo = scan.allClasses
+        return classInfo.mapNotNull {
+            try {
+                it.loadClass().kotlin
+            } catch (t:Throwable) {
+                LOGGER.debug("Ignored class ${it.name}, cannot load class")
+                null
+            }
+        }
+    }
+
+/*
     private fun createMemberName(methodName: String): String {
         return methodName.substring(3, 4).toLowerCase() + methodName.substring(4)
     }
+*/
 
     private fun _createPropertyType(ci: ClassInfo, tArgs: List<TypeArgument>, isRef: Boolean): MutableMap<String, Any> {
         val mType = mutableMapOf<String, Any>()
@@ -466,13 +542,17 @@ open class GenerateDeclarationsTask : DefaultTask() {
 
     }
 
-    private fun createPropertyType2(kclass: KClass<*>, owningTypePackageName: String): Map<String, Any> {
+    private fun createPropertyType2(kclass: KClass<*>, owningTypePackage: PackageData): Map<String, Any> {
         var mType: MutableMap<String, Any> = mutableMapOf()
         val pkgName = kclass.qualifiedName!!.substringBeforeLast('.')
         mType["name"] = kclass.simpleName!!
         mType["qualifiedName"] = kclass.qualifiedName!!
+        mType["moduleVar"] = classModuleMap[kclass.qualifiedName!!]?.replace("-", "_") ?: "unknown"
+        mType["fullyQualifiedName"] = "${mType["moduleVar"]}.${mType["qualifiedName"]}"
         mType["isCollection"] = kclass.isSubclassOf(Collection::class)
-        mType["isSamePackage"] = pkgName == owningTypePackageName
+        mType["isSamePackage"] = pkgName == owningTypePackage.qualifiedName
+        mType["isSameModule"] = this.classModuleMap[kclass.qualifiedName!!] == owningTypePackage.moduleName
+
         val mappedName = this.typeMapping.get()[mType["qualifiedName"]]
         return if (null == mappedName) {
             mType
@@ -480,11 +560,12 @@ open class GenerateDeclarationsTask : DefaultTask() {
             LOGGER.debug("Mapping " + mType["name"] + " to " + mappedName)
             mType["name"] = mappedName
             mType["qualifiedName"] = mappedName
+            mType["fullyQualifiedName"] = mappedName
             mType
         }
     }
 
-    private fun createPropertyType2(ktype: KType, owningTypePackageName: String): Map<String, Any> {
+    private fun createPropertyType2(ktype: KType, owningTypePackage: PackageData): Map<String, Any> {
         var mType: MutableMap<String, Any> = mutableMapOf()
         val kclass = ktype.classifier
 
@@ -493,11 +574,15 @@ open class GenerateDeclarationsTask : DefaultTask() {
                 val pkgName = kclass.qualifiedName!!.substringBeforeLast('.')
                 mType["name"] = kclass.simpleName!!
                 mType["qualifiedName"] = kclass.qualifiedName!!
+                mType["moduleVar"] = classModuleMap[kclass.qualifiedName!!]?.replace("-", "_") ?: "unknown"
+                mType["fullyQualifiedName"] = "${mType["moduleVar"]}.${mType["qualifiedName"]}"
                 mType["isCollection"] = kclass.isSubclassOf(Collection::class)
-                mType["isSamePackage"] = pkgName == owningTypePackageName
+                mType["isSamePackage"] = pkgName == owningTypePackage.qualifiedName
+                mType["isSameModule"] = this.classModuleMap[kclass.qualifiedName!!] == owningTypePackage.moduleName
+
                 if (kclass.isSubclassOf(Collection::class)) {
                     val elementTypes = ktype.arguments.map {
-                        this.createPropertyType2(it.type!!, owningTypePackageName)
+                        this.createPropertyType2(it.type!!, owningTypePackage)
                     }
                     mType["elementType"] = elementTypes
                 }
@@ -506,6 +591,7 @@ open class GenerateDeclarationsTask : DefaultTask() {
                 mType["name"] = kclass.name
                 mType["qualifiedName"] = kclass.name
                 mType["isSamePackage"] = true
+                mType["isSameModule"] = true
                 mType["isCollection"] = false
             }
             else -> throw RuntimeException("cannot handle property type ${kclass!!::class} ${ktype}")
@@ -518,6 +604,7 @@ open class GenerateDeclarationsTask : DefaultTask() {
             LOGGER.debug("Mapping " + mType["name"] + " to " + mappedName)
             mType["name"] = mappedName
             mType["qualifiedName"] = mappedName
+            mType["fullyQualifiedName"] = mappedName
             mType
         }
 
