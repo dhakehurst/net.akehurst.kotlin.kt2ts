@@ -357,43 +357,52 @@ open class GenerateDeclarationsTask : DefaultTask() {
                 val moduleName = this.classModuleMap[kclass.qualifiedName!!] ?: "unknown"
 
 
-                    LOGGER.debug("Adding Class ${cls.name}")
-                    val dtModel = mutableMapOf<String, Any>()
-                    datatypes.add(dtModel)
-                    dtModel["name"] = kclass.simpleName!!
-                    dtModel["moduleVar"] = moduleName.replace("-", "_")
-                    dtModel["qualifiedName"] = kclass.qualifiedName!!
-                    dtModel["fullyQualifiedName"] = "${dtModel["moduleVar"]}.${dtModel["qualifiedName"]}"
-                    dtModel["isInterface"] = cls.isInterface
-                    dtModel["isAbstract"] = kclass.isAbstract && cls.isInterface.not()
-                    dtModel["isEnum"] = cls.isEnum
+                LOGGER.debug("Adding Class ${cls.name}")
+                val dtModel = mutableMapOf<String, Any>()
+                datatypes.add(dtModel)
+                dtModel["name"] = kclass.simpleName!!
+                dtModel["moduleVar"] = moduleName.replace("-", "_")
+                dtModel["qualifiedName"] = kclass.qualifiedName!!
+                dtModel["fullyQualifiedName"] = "${dtModel["moduleVar"]}.${dtModel["qualifiedName"]}"
+                dtModel["isInterface"] = cls.isInterface
+                dtModel["isAbstract"] = kclass.isAbstract && cls.isInterface.not()
+                dtModel["isEnum"] = cls.isEnum
 
-                    val extends_ = ArrayList<Map<String, Any>>()
-                    val implements_ = ArrayList<Map<String, Any>>()
-                    dtModel["extends"] = if (cls.isInterface) implements_ else extends_
-                    dtModel["implements"] = if (cls.isInterface) emptyList<Map<String, Any>>() else implements_
-                    kclass.supertypes.forEach { ktype ->
-                        val kclass = ktype.classifier as KClass<*>
-                        if (kclass == Any::class) {
-                            //donothing
+                val extends_ = ArrayList<Map<String, Any>>()
+                val implements_ = ArrayList<Map<String, Any>>()
+                dtModel["extends"] = if (cls.isInterface) implements_ else extends_
+                dtModel["implements"] = if (cls.isInterface) emptyList<Map<String, Any>>() else implements_
+                kclass.supertypes.forEach { ktype ->
+                    val kclass = ktype.classifier as KClass<*>
+                    if (kclass == Any::class) {
+                        //donothing
+                    } else {
+                        val mt = this.createPropertyType2(ktype, PackageData(moduleName, pkgName))
+                        if (kclass.java.isInterface) {
+                            implements_.add(mt)
                         } else {
-                            val mt = this.createPropertyType2(ktype, PackageData(moduleName, pkgName))
-                            if (kclass.java.isInterface) {
-                                implements_.add(mt)
-                            } else {
-                                extends_.add(mt)
-                            }
+                            extends_.add(mt)
                         }
                     }
+                }
 
-                    val property = mutableListOf<Map<String, Any>>()
-                    dtModel["property"] = property
+                val property = mutableListOf<Map<String, Any>>()
+                dtModel["property"] = property
+
+                if (cls.isEnum) {
+                    kclass.java.enumConstants.forEach {
+                        val prop = mutableMapOf<String, Any>()
+                        prop["name"] = (it as Enum<*>).name
+                        property.add(prop)
+                    }
+                } else {
                     kclass.memberProperties.forEach {
                         val prop = mutableMapOf<String, Any>()
                         prop["name"] = it.name
                         prop["type"] = this.createPropertyType2(it.returnType, PackageData(moduleName, pkgName))
                         property.add(prop)
                     }
+                }
             }
         }
         return model
@@ -486,7 +495,7 @@ open class GenerateDeclarationsTask : DefaultTask() {
         val classInfo = scan.allClasses
         return classInfo.flatMap {
             listOf(it.name) + it.innerClasses.map {
-                it.name.replace("$",".")
+                it.name.replace("$", ".")
             }
         }
     }

@@ -6,6 +6,9 @@ export declare namespace {{name}} {
       {{#each datatype~}}
         {{#if isEnum~}}
             enum {{name}} {
+                {{#each property~}}
+                    {{name}}{{#unless @last}},{{/unless}}
+                {{~/each}}
             }
         {{else~}}
             {{#if isAbstract}}abstract{{/if}} {{#if isInterface}}interface{{else}}class{{/if}} {{name}}{{#if extends}} extends {{#each extends~}}
