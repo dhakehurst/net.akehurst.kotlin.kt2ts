@@ -21,10 +21,7 @@ import kotlinx.serialization.ImplicitReflectionSerializer
 import kotlinx.serialization.json.*
 import kotlinx.serialization.stringify
 import org.gradle.api.DefaultTask
-import org.gradle.api.tasks.Input
-import org.gradle.api.tasks.InputFile
-import org.gradle.api.tasks.OutputFile
-import org.gradle.api.tasks.TaskAction
+import org.gradle.api.tasks.*
 import org.slf4j.LoggerFactory
 import java.io.File
 
@@ -35,8 +32,8 @@ open class GeneratePackageJsonTask : DefaultTask() {
         private val LOGGER = LoggerFactory.getLogger(GeneratePackageJsonTask::class.java)
     }
 
-    @get:OutputFile
-    var packageJsonFile = project.objects.fileProperty()
+    @get:OutputDirectory
+    var packageJsonDir = project.objects.directoryProperty()
 
     @get:Input
     var moduleName = project.objects.property(String::class.java)
@@ -66,7 +63,7 @@ open class GeneratePackageJsonTask : DefaultTask() {
 
     @TaskAction
     internal fun exec() {
-        val _packageJsonFile = packageJsonFile.get().asFile
+        val _packageJsonFile = packageJsonDir.get().file("package.json").asFile
         val _moduleGroup = moduleGroup.get()
         val _moduleName = moduleName.get()
         val _moduleVersion = moduleVersion.get()

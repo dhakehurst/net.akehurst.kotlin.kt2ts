@@ -52,11 +52,13 @@ open class GeneratorPluginExtension(objects: ObjectFactory)  {
     var modulesConfigurationName = objects.property(String::class.java)
     var templateFileName = objects.property(String::class.java) //"template.hbs"
     var templateDir = objects.directoryProperty()
-    var packageJsonFile = objects.fileProperty()
+    var packageJsonDir = objects.directoryProperty()
     var declarationsFile = objects.fileProperty()
     var classPatterns = objects.listProperty(String::class.java)
     var typeMapping = objects.mapProperty(String::class.java,String::class.java)
     var dependencies = objects.listProperty(String::class.java)
+
+    var kotlinStdlibJsDir = objects.directoryProperty()
 
     init {
         this.overwrite.set(true)

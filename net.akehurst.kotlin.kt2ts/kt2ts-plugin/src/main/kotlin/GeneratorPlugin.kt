@@ -26,12 +26,12 @@ class GeneratorPlugin : Plugin<ProjectInternal> {
         project.pluginManager.apply(BasePlugin::class.java)
         val ext = project.extensions.create<GeneratorPluginExtension>(GeneratorPluginExtension.NAME, GeneratorPluginExtension::class.java)
         project.tasks.create(GeneratePackageJsonTask.NAME, GeneratePackageJsonTask::class.java) { tsk ->
-            tsk.packageJsonFile = ext.packageJsonFile
+            tsk.packageJsonDir = ext.packageJsonDir
         }
         project.tasks.create(GenerateDeclarationsTask.NAME, GenerateDeclarationsTask::class.java) { gt ->
             //TODO: how to set dependsOn to "${ext.jvmName}MainClasses" ?
             gt.dependsOn(GeneratePackageJsonTask.NAME)
-            gt.overwrite=ext.overwrite
+            gt.overwrite = ext.overwrite
             gt.localOnly = ext.localOnly
             gt.moduleOnly = ext.moduleOnly
             gt.declarationsFile = ext.declarationsFile
@@ -43,7 +43,9 @@ class GeneratorPlugin : Plugin<ProjectInternal> {
             gt.typeMapping = ext.typeMapping
             gt.dependencies = ext.dependencies
         }
-
+        project.tasks.create(AddKotlinStdlibDeclarationsTask.NAME, AddKotlinStdlibDeclarationsTask::class.java) { tsk ->
+            tsk.outputDir = ext.kotlinStdlibJsDir
+        }
 
     }
 

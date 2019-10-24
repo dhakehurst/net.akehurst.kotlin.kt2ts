@@ -8,13 +8,13 @@ export declare namespace {{name}} {
             export enum {{name}} {
             }
         {{else~}}
-            export {{#if isAbstract}}abstract{{/if}} class {{name}}{{#if extends}} extends {{#each extends~}}
-              {{#if isSamePackage}}{{name}}{{else if type.isSameModule}}{{qualifiedName}}{{else}}{{fullyQualifiedName}}{{/if}}
+            export {{#if isAbstract}}abstract{{/if}} {{#if isInterface}}interface{{else}}class{{/if}} {{name}}{{#if extends}} extends {{#each extends~}}
+              {{#if isSamePackage}}{{name}}{{else if isSameModule}}{{qualifiedName}}{{else}}{{fullyQualifiedName}}{{/if}}
             {{~/each}} {{/if}} {{#if implements}} implements {{#each implements~}}
-              {{#if isSamePackage}}{{name}}{{else if type.isSameModule}}{{qualifiedName}}{{else}}{{fullyQualifiedName}}{{/if}}{{#unless @last}},{{/unless}}
+              {{#if isSamePackage}}{{name}}{{else if isSameModule}}{{qualifiedName}}{{else}}{{fullyQualifiedName}}{{/if}}{{#unless @last}},{{/unless}}
             {{~/each}} {{/if}} {
               {{#each property~}}
-                {{name}}: {{#if type.isCollection~}}
+                {{name}}: {{#if type.isGeneric~}}
                                {{#if type.isSamePackage~}}
                                  {{type.name}}
                                {{~else if type.isSameModule~}}
