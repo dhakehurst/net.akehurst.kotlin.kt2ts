@@ -70,6 +70,7 @@ open class GeneratorPluginExtension(objects: ObjectFactory)  {
                 "kotlin.Any" to "any",
                 "kotlin.String" to "string",
                 "kotlin.Int" to "number",
+                "kotlin.Long" to "number",
                 "kotlin.Float" to "number",
                 "kotlin.Double" to "number",
                 "kotlin.Boolean" to "boolean",

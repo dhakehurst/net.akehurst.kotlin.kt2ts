@@ -118,6 +118,7 @@ open class GenerateDeclarationsTask : DefaultTask() {
                 "kotlin.Any" to "any",
                 "kotlin.String" to "string",
                 "kotlin.Int" to "number",
+                "kotlin.Long" to "number",
                 "kotlin.Float" to "number",
                 "kotlin.Double" to "number",
                 "kotlin.Boolean" to "boolean",
@@ -268,7 +269,16 @@ open class GenerateDeclarationsTask : DefaultTask() {
 
         val clToGenerate = this.createClassLoaderForDecls()
         val clForAll = this.createClassLoaderForAll()
-        val scan = ClassGraph()//
+        val packages = mutableListOf<String>()
+        val classes = mutableListOf<String>()
+        classPatterns.forEach { pat ->
+            if (pat.endsWith(".*")) {
+                packages.add(pat.substringBeforeLast(".*"))
+            } else {
+                classes.add(pat)
+            }
+        }
+        val cg = ClassGraph()//
                 .ignoreParentClassLoaders()
                 .overrideClassLoaders(clToGenerate)//
                 .enableClassInfo()//
@@ -276,9 +286,13 @@ open class GenerateDeclarationsTask : DefaultTask() {
                 //.enableExternalClasses() //
                 //.enableAnnotationInfo() //
                 //.enableSystemPackages()//
-                .whitelistPackages(*classPatterns.toTypedArray())//
-                .scan()
-        val classInfo = scan.allClasses
+                .whitelistPackages(*packages.toTypedArray())
+                .whitelistClasses(*classes.toTypedArray())
+
+        val scan = cg.scan()
+        val classInfo = scan.allClasses.flatMap {
+            listOf(it) + it.innerClasses
+        }.toSet()
 
         LOGGER.info("Building Datatype model for ${classInfo.size} types")
 
@@ -291,11 +305,28 @@ open class GenerateDeclarationsTask : DefaultTask() {
             }
         }
         val filtered = classInfo.filter {
-            it.name.contains("$").not()
+            try {
+                val kclass: KClass<*> = clForAll.loadClass(it.name).kotlin
+                kclass.isAbstract //this will throw exception if kotlin reflection not possible
+                when {
+                    kclass.isCompanion -> false
+                    else -> true
+
+                }
+            } catch (ex: Throwable) {
+                LOGGER.info("Skipping Class ${it.name} because kotlin reflection not supported on it")
+                false
+            }
         }
 
         val sorted = filtered.sortedWith(comparator)
-        val namespaceGroups = sorted.groupBy { it.packageName }
+        val namespaceGroups = sorted.groupBy {
+            if (it.isInnerClass) {
+                it.name.substringBeforeLast("$") //TODO: handle more than one level of nesting (maybe just replace $ with . here
+            } else {
+                it.packageName
+            }
+        }
 
         val model = mutableMapOf<String, Any>()
 
@@ -325,15 +356,6 @@ open class GenerateDeclarationsTask : DefaultTask() {
                 val pkgName = kclass.qualifiedName!!.substringBeforeLast('.')
                 val moduleName = this.classModuleMap[kclass.qualifiedName!!] ?: "unknown"
 
-                var reflectable = true
-                try {
-                    //this will throw exception if kotlin reflection not possible
-                    kclass.isAbstract
-                } catch (ex: Throwable) {
-                    reflectable = false
-                }
-
-                if (reflectable) {
 
                     LOGGER.debug("Adding Class ${cls.name}")
                     val dtModel = mutableMapOf<String, Any>()
@@ -372,9 +394,6 @@ open class GenerateDeclarationsTask : DefaultTask() {
                         prop["type"] = this.createPropertyType2(it.returnType, PackageData(moduleName, pkgName))
                         property.add(prop)
                     }
-                } else {
-                    LOGGER.info("Skipping Class ${cls.name} because kotlin reflection not supported on it")
-                }
             }
         }
         return model
@@ -429,49 +448,35 @@ open class GenerateDeclarationsTask : DefaultTask() {
     }
 
     private fun createClassModuleMapping() {
-        //hard code kotlin-stdlib types because scanning kotlin-stdlib.jar does not find the built-in types
+        //hard code kotlin built-in types because scanning kotlin-stdlib.jar does not find them
         val KOTLIN_STDLIB_MODULE = "kotlin-stdlib"
         this.classModuleMap[Collection::class.qualifiedName!!] = KOTLIN_STDLIB_MODULE
         this.classModuleMap[List::class.qualifiedName!!] = KOTLIN_STDLIB_MODULE
         this.classModuleMap[Set::class.qualifiedName!!] = KOTLIN_STDLIB_MODULE
         this.classModuleMap[Map::class.qualifiedName!!] = KOTLIN_STDLIB_MODULE
-        this.classModuleMap[Pair::class.qualifiedName!!] = KOTLIN_STDLIB_MODULE
-        this.classModuleMap[KClass::class.qualifiedName!!] = KOTLIN_STDLIB_MODULE
+        this.classModuleMap[Comparable::class.qualifiedName!!] = KOTLIN_STDLIB_MODULE
+        //this.classModuleMap[Pair::class.qualifiedName!!] = KOTLIN_STDLIB_MODULE
+        //this.classModuleMap[KClass::class.qualifiedName!!] = KOTLIN_STDLIB_MODULE
 
         val localBuild = project.buildDir.resolve("classes/kotlin/${localJvmName.get()}/main")
         val localUrl = localBuild.absoluteFile.toURI().toURL()
+        val moduleName = project.name
         fetchClassesFor(localUrl).forEach {
-            val moduleName = project.name
-            try {
-                this.classModuleMap[it.qualifiedName!!] = moduleName
-            } catch (t: Throwable) {
-                try {
-                    LOGGER.debug("Ignored class ${it}, cannot get qualifiedName")
-                } catch (t: Throwable) {
-                    LOGGER.debug("Ignored class, unknown error")
-                }
-            }
+            this.classModuleMap[it] = moduleName
         }
 
         val configurationName = modulesConfigurationName.get()
         val c = this.project.configurations.findByName(configurationName) ?: throw RuntimeException("Cannot find $configurationName configuration")
         c.resolvedConfiguration.resolvedArtifacts.forEach { dep ->
+            val moduleName = if (dep.name == "kotlin-stdlib") dep.name else dep.name.substringBeforeLast("-")
             fetchClassesFor(dep.file.toURI().toURL()).forEach {
-                val moduleName = dep.name.substringBeforeLast("-")
-                try {
-                    this.classModuleMap[it.qualifiedName!!] = moduleName
-                } catch (t: Throwable) {
-                    try {
-                        LOGGER.debug("Ignored class ${it}, cannot get qualifiedName")
-                    } catch (t: Throwable) {
-                        LOGGER.debug("Ignored class, unknown error")
-                    }
-                }
+
+                this.classModuleMap[it] = moduleName
             }
         }
     }
 
-    private fun fetchClassesFor(url: URL): List<KClass<*>> {
+    private fun fetchClassesFor(url: URL): List<String> {
         val cl = URLClassLoader(arrayOf(url))
         val scan = ClassGraph()//
                 .ignoreParentClassLoaders()
@@ -479,12 +484,9 @@ open class GenerateDeclarationsTask : DefaultTask() {
                 .enableClassInfo()//
                 .scan()
         val classInfo = scan.allClasses
-        return classInfo.mapNotNull {
-            try {
-                it.loadClass().kotlin
-            } catch (t: Throwable) {
-                LOGGER.debug("Ignored class ${it.name}, cannot load class")
-                null
+        return classInfo.flatMap {
+            listOf(it.name) + it.innerClasses.map {
+                it.name.replace("$",".")
             }
         }
     }
@@ -560,7 +562,7 @@ open class GenerateDeclarationsTask : DefaultTask() {
                 mType = createPropertyTypeFromKClass(kclass, owningTypePackage)
                 if (kclass.typeParameters.isNotEmpty()) {
                     val elementTypes = ktype.arguments.map {
-                        if (null==it.type) { //if * projection
+                        if (null == it.type) { //if * projection
                             mType["name"] = "any"
                             mType["qualifiedName"] = "any"
                             mType["isSamePackage"] = true
