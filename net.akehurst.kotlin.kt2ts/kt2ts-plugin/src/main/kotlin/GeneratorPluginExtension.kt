@@ -50,8 +50,6 @@ open class GeneratorPluginExtension(objects: ObjectFactory)  {
      * name of the configuration to use for finding dependend modules
      */
     var modulesConfigurationName = objects.property(String::class.java)
-    var templateFileName = objects.property(String::class.java) //"template.hbs"
-    var templateDir = objects.directoryProperty()
     var packageJsonDir = objects.directoryProperty()
     var declarationsFile = objects.fileProperty()
     var classPatterns = objects.listProperty(String::class.java)
@@ -65,10 +63,13 @@ open class GeneratorPluginExtension(objects: ObjectFactory)  {
         this.localOnly.set(true)
         this.localJvmName.set("jvm")
         this.modulesConfigurationName.set("jvmRuntimeClasspath")
-        this.templateFileName.set("template.hbs")
         this.typeMapping.set(mapOf(
+                "kotlin.reflect.KClass" to "any", //not sure what else to use!
+                "kotlin.Unit" to "void",
                 "kotlin.Any" to "any",
+                "kotlin.CharSequence" to "string",
                 "kotlin.String" to "string",
+                "kotlin.Number" to "number",
                 "kotlin.Int" to "number",
                 "kotlin.Long" to "number",
                 "kotlin.Float" to "number",

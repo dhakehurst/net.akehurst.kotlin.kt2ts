@@ -11,61 +11,41 @@ export declare namespace {{name}} {
                 {{~/each}}
             }
         {{else~}}
-            {{#if isAbstract}}abstract{{/if}} {{#if isInterface}}interface{{else}}class{{/if}} {{name}}{{#if extends}} extends {{#each extends~}}
-              {{#if isSamePackage}}{{name}}{{else if isSameModule}}{{qualifiedName}}{{else}}{{fullyQualifiedName}}{{/if}}
-            {{~/each}} {{/if}} {{#if implements}} implements {{#each implements~}}
-              {{#if isSamePackage}}{{name}}{{else if isSameModule}}{{qualifiedName}}{{else}}{{fullyQualifiedName}}{{/if}}{{#unless @last}},{{/unless}}
-            {{~/each}} {{/if}} {
+            {{~#if isObject~}}
+                var {{name}}:
+            {{~else~}}
+                {{#if isAbstract}}abstract{{/if}} {{#if isInterface}}interface{{else}}class{{/if}} {{name}}{{#if extends}} extends {{#each extends~}}
+                    {{name}}
+                {{~/each}} {{/if}} {{#if implements}} implements {{#each implements~}}
+                    {{name}}{{#unless @last}},{{/unless}}
+                {{~/each}} {{/if~}}
+            {{/if~}}
+            {
               {{#each property~}}
                 {{name}}: {{#if type.isGeneric~}}
-                               {{#if type.isSamePackage~}}
-                                 {{type.name}}
-                               {{~else if type.isSameModule~}}
-                                 {{type.qualifiedName}}
-                               {{~else~}}
-                                 {{type.fullyQualifiedName}}
-                               {{~/if~}}
-                               <{{#each type.elementType~}}
-                                    {{#if isGeneric~}}
-                                       {{#if isSamePackage~}}
-                                         {{name}}
-                                       {{~else if isSameModule~}}
-                                         {{qualifiedName}}
-                                       {{~else~}}
-                                         {{fullyQualifiedName}}
-                                       {{~/if~}}
-                                       <{{#each elementType~}}
-                                                       {{#if isSamePackage~}}
-                                                         {{name}}
-                                                       {{~else if isSameModule~}}
-                                                         {{qualifiedName}}
-                                                       {{~else~}}
-                                                         {{fullyQualifiedName}}
-                                                       {{~/if~}}{{#unless @last}},{{/unless}}
-                                                    {{~/each}}>
-                                    {{~else if isEnum~}}
-                                        any /* enum {{name}} */
+                               {{type.name}}<{{#each type.elementType~}}
+                                    {{~#if isGeneric~}}
+                                       {{name}}<{{#each elementType~}}{{name}}{{#unless @last}},{{/unless}}{{~/each}}>
                                     {{~else~}}
-                                       {{#if isSamePackage~}}
                                          {{name}}
-                                       {{~else if isSameModule~}}
-                                         {{qualifiedName}}
-                                       {{~else~}}
-                                         {{fullyQualifiedName}}
-                                       {{~/if~}}
                                     {{~/if~}}{{#unless @last}},{{/unless}}
                                {{~/each}}>
-                          {{~else if type.isEnum~}}
-                             any /* enum {{name}} */
                           {{~else~}}
-                               {{#if type.isSamePackage~}}
-                                 {{type.name}}
-                               {{~else if type.isSameModule~}}
-                                 {{type.qualifiedName}}
-                               {{~else~}}
-                                 {{type.fullyQualifiedName}}
-                               {{~/if~}}
+                             {{type.name}}
                           {{~/if~}};
+              {{/each}}
+              {{#each method~}}
+                {{name}}() : {{#if returnType.isGeneric~}}
+                                {{returnType.name}}<{{#each returnType.elementType~}}
+                                     {{~#if isGeneric~}}
+                                        {{name}}<{{#each elementType~}}{{name}}{{#unless @last}},{{/unless}}{{~/each}}>
+                                     {{~else~}}
+                                          {{name}}
+                                     {{~/if~}}{{#unless @last}},{{/unless}}
+                                {{~/each}}>
+                           {{~else~}}
+                              {{returnType.name}}
+                           {{~/if~}};
               {{/each}}
             }
         {{/if}}
