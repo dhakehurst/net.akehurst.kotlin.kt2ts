@@ -40,6 +40,11 @@ data class PackageData(
         val qualifiedName: String
 )
 
+data class Module(
+        val group: String,
+        val name: String
+)
+
 data class Namespace(
         val qualifiedName: String
 ) {
@@ -120,7 +125,10 @@ open class GenerateDeclarationsTask : DefaultTask() {
         //val model = this.createModel(this.classPatterns.get())
         //val model2 = this.createModel2(this.classPatterns.get())
         val of = this.declarationsFile.get().asFile
-        val imports = dependencies.get()
+        val imports = dependencies.get().map {
+            val split = it.split(":")
+            Module(split[0], split[1])
+        }
         val namespaces = fetchNamespaces(this.classPatterns.get())
         val content = generateFileContent(imports, namespaces)
         this.generate(content, of)
@@ -223,17 +231,19 @@ open class GenerateDeclarationsTask : DefaultTask() {
         }
     }
 
-    private fun generateFileContent(imports: List<String>, namespaces: List<Namespace>): String {
+    private fun generateFileContent(imports: List<Module>, namespaces: List<Namespace>): String {
         val importStr = imports.map { generateImport(it) }.joinToString("\n")
         val namespaceStr = namespaces.map { generateNamespace(it) }.joinToString("\n")
 
         return "$importStr\n\n$namespaceStr"
     }
 
-    private fun generateImport(moduleName: String): String {
-        val name = moduleName.substringBeforeLast("-").replace("-", "_")
-        val file = moduleName
-        return "import * as $name from '$file';"
+    private fun generateImport(module:Module): String {
+        val alias = module.name.substringBeforeLast("-").replace("-", "_")
+        val group = module.group
+        val name = module.name
+        val file = "$group-$name"
+        return "import * as $alias from '$file';"
     }
 
     private fun generateNamespace(namespace: Namespace): String {
