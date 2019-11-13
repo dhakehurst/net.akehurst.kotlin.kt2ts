@@ -35,19 +35,49 @@ import kotlin.reflect.full.declaredMemberProperties
 import kotlin.reflect.full.valueParameters
 import kotlin.streams.toList
 
-data class PackageData(
-        val moduleName: String,
-        val qualifiedName: String
-)
-
 data class Module(
         val group: String,
         val name: String
-)
+) {
+    companion object {
+        val all = mutableSetOf<Module>()
+        fun fetchOrCreate(group: String, name: String): Module {
+            var m = all.firstOrNull { it.group == group && it.name == name }
+            if (null == m) {
+                m = Module(group, name)
+                all.add(m)
+            }
+            return m
+        }
+    }
+
+    val alias: String get() {
+        val moduleName = name //if (this == GenerateDeclarationsTask.KOTLIN_STDLIB_MODULE) name else name.substringBeforeLast('-')
+        val a = moduleName.replace('-', '_')
+        return "$${a}"
+    }
+    private val _namespaces = mutableMapOf<String, Namespace>()
+    val namespaces : Map<String, Namespace> = _namespaces
+
+    val dependencies: Set<Module> get() {
+        return namespaces.values.flatMap { it.usedModules }.toSet()
+    }
+
+    fun fetchOrCreateNamespace(qualifiedName:String): Namespace {
+        var ns = namespaces[qualifiedName]
+        if (null==ns) {
+            ns = Namespace(this, qualifiedName)
+            _namespaces[qualifiedName] = ns
+        }
+        return ns
+    }
+}
 
 data class Namespace(
+        val module: Module,
         val qualifiedName: String
 ) {
+    val usedModules = mutableSetOf<Module>()
     lateinit var content: List<KClass<*>>
 }
 
@@ -56,8 +86,21 @@ open class GenerateDeclarationsTask : DefaultTask() {
     companion object {
         val INDENT = "  "
         val NAME = "generateTypescriptDefinitionFile"
+        val KOTLIN_STDLIB_MODULE = Module.fetchOrCreate("org.jetbrains.kotlin", "kotlin-stdlib")
         private val LOGGER = LoggerFactory.getLogger(GenerateDeclarationsTask::class.java)
     }
+
+    /**
+     * group name of the module to generate for [default project.group]
+     */
+    @get:Input
+    var moduleGroup = project.objects.property(String::class.java)
+
+    /**
+     * name of the module to generate for [default project.name]
+     */
+    @get:Input
+    var moduleName = project.objects.property(String::class.java)
 
     @get:Input
     var overwrite = project.objects.property(Boolean::class.java)
@@ -84,16 +127,22 @@ open class GenerateDeclarationsTask : DefaultTask() {
     @get:Optional
     var typeMapping = project.objects.mapProperty(String::class.java, String::class.java)
 
+    //@get:Input
+    //@get:Optional
+   // var dependencies = project.objects.listProperty(String::class.java)
+
     @get:Input
     @get:Optional
-    var dependencies = project.objects.listProperty(String::class.java)
+    var moduleNameMap = project.objects.mapProperty(String::class.java, String::class.java)
 
-    private var classModuleMap: MutableMap<String, String> = mutableMapOf()
+    private var classModuleMap: MutableMap<String, Module> = mutableMapOf()
 
     init {
         this.group = "generate"
         this.description = "Generate typescript declaration file (*.d.ts) from kotlin classes"
 
+        this.moduleGroup.set(project.group as String)
+        this.moduleName.set(project.name)
         this.overwrite.set(true)
         this.localOnly.set(true)
         this.localJvmName.set("jvm")
@@ -102,11 +151,14 @@ open class GenerateDeclarationsTask : DefaultTask() {
                 "kotlin.reflect.KClass" to "any", //not sure what else to use!
                 "kotlin.Unit" to "void",
                 "kotlin.Any" to "any",
-                "kotlin.String" to "string",
+                "kotlin.Array" to "Array",
                 "kotlin.CharSequence" to "string",
+                "kotlin.Char" to "number",
+                "kotlin.String" to "string",
                 "kotlin.Number" to "number",
+                "kotlin.Byte" to "number",
+                "kotlin.Short" to "number",
                 "kotlin.Int" to "number",
-                "kotlin.Long" to "number",
                 "kotlin.Float" to "number",
                 "kotlin.Double" to "number",
                 "kotlin.Boolean" to "boolean",
@@ -124,25 +176,26 @@ open class GenerateDeclarationsTask : DefaultTask() {
 
         //val model = this.createModel(this.classPatterns.get())
         //val model2 = this.createModel2(this.classPatterns.get())
-        val of = this.declarationsFile.get().asFile
-        val imports = dependencies.get().map {
-            val split = it.split(":")
-            Module(split[0], split[1])
-        }
-        val namespaces = fetchNamespaces(this.classPatterns.get())
-        val content = generateFileContent(imports, namespaces)
-        this.generate(content, of)
+        val thisModule = Module.fetchOrCreate(this.moduleGroup.get(), this.moduleName.get())
 
+        //val imports = listOf(KOTLIN_STDLIB_MODULE) + dependencies.get().map {
+        //    val split = it.split(":")
+        //    Module.fetchOrCreate(split[0], split[1])
+        //}
+        buildNamespaces(thisModule, this.classPatterns.get())
+        val content = generateFileContent(thisModule)
+        val of = this.declarationsFile.get().asFile
+        this.generate(content, of)
     }
 
-    private fun fetchNamespaces(classPatterns: List<String>): List<Namespace> {
+    private fun buildNamespaces(thisModule:Module, classPatterns: List<String>) {
         LOGGER.info("Scanning classpath")
         LOGGER.info("Including:")
         classPatterns.forEach {
             LOGGER.info("  ${it}")
         }
 
-        createClassModuleMapping() //TODO: this is not very efficient, stuff is scanned more than once, here and further on
+        createClassModuleMapping(thisModule) //TODO: this is not very efficient, stuff is scanned more than once, here and further on
 
         val clToGenerate = this.createClassLoaderForDecls()
         val clForAll = this.createClassLoaderForAll()
@@ -204,8 +257,8 @@ open class GenerateDeclarationsTask : DefaultTask() {
                 it.packageName
             }
         }
-        return namespaceGroups.map { (nsn, classes) ->
-            val ns = Namespace(nsn)
+        namespaceGroups.map { (nsn, classes) ->
+            val ns = thisModule.fetchOrCreateNamespace(nsn)
             ns.content = classes.map { clForAll.loadClass(it.name).kotlin }
             ns
         }
@@ -231,15 +284,16 @@ open class GenerateDeclarationsTask : DefaultTask() {
         }
     }
 
-    private fun generateFileContent(imports: List<Module>, namespaces: List<Namespace>): String {
-        val importStr = imports.map { generateImport(it) }.joinToString("\n")
-        val namespaceStr = namespaces.map { generateNamespace(it) }.joinToString("\n")
+    private fun generateFileContent(thisModule:Module): String {
+        val namespaceStr = thisModule.namespaces.values.map { generateNamespace(it) }.joinToString("\n")
+        //do imports second, because generating the types in namespaces adds the usedModules/dependencies
+        val importStr = thisModule.dependencies.map { generateImport(it) }.joinToString("\n")
 
         return "$importStr\n\n$namespaceStr"
     }
 
-    private fun generateImport(module:Module): String {
-        val alias = module.name.substringBeforeLast("-").replace("-", "_")
+    private fun generateImport(module: Module): String {
+        val alias = module.alias
         val group = module.group
         val name = module.name
         val file = "$group-$name"
@@ -261,11 +315,11 @@ open class GenerateDeclarationsTask : DefaultTask() {
 
     private fun generateKClass1(kclass: KClass<*>): String {
         val pkgName = kclass.qualifiedName!!.substringBeforeLast('.')
-        val moduleName = this.classModuleMap[kclass.qualifiedName!!] ?: "unknown"
-        val packageData = PackageData(moduleName, pkgName)
+        val module = this.classModuleMap[kclass.qualifiedName!!] ?: Module.fetchOrCreate("unknown", kclass.qualifiedName!!)
+        val namespace = module.fetchOrCreateNamespace(pkgName)
         val name = kclass.simpleName!!
-        val properties = kclass.declaredMemberProperties.filter{it.visibility==KVisibility.PUBLIC}.map { generateProperty(it, packageData) }.joinToString("\n").prependIndent(INDENT)
-        val methods = kclass.declaredMemberFunctions.filter{it.visibility==KVisibility.PUBLIC}.map { generateMethod(it, packageData) }.joinToString("\n").prependIndent(INDENT)
+        val properties = kclass.declaredMemberProperties.filter { it.visibility == KVisibility.PUBLIC }.map { generateProperty(it, namespace) }.joinToString("\n").prependIndent(INDENT)
+        val methods = kclass.declaredMemberFunctions.filter { it.visibility == KVisibility.PUBLIC }.map { generateMethod(it, namespace) }.joinToString("\n").prependIndent(INDENT)
         val typeParams = if (kclass.typeParameters.isEmpty()) {
             ""
         } else {
@@ -273,10 +327,14 @@ open class GenerateDeclarationsTask : DefaultTask() {
             "<$tp>"
         }
         val prefix = when {
-            null != kclass.objectInstance -> "var $name:"
             kclass.isAbstract -> "abstract class $name$typeParams"
             kclass.java.isInterface -> "interface $name$typeParams"
             else -> "class $name$typeParams"
+        }
+        val instance = if (null == kclass.objectInstance) {
+            ""
+        } else {
+            "INSTANCE:$name".prependIndent(INDENT)
         }
         val extends = mutableListOf<String>()
         val implements = mutableListOf<String>()
@@ -285,7 +343,7 @@ open class GenerateDeclarationsTask : DefaultTask() {
             if (sclass == Any::class) {
                 //donothing
             } else {
-                val type = this.generateType(stype, packageData)
+                val type = this.generateType(stype, namespace)
                 when {
                     kclass.java.isInterface -> extends.add(type)
                     sclass.java.isInterface -> implements.add(type)
@@ -295,17 +353,17 @@ open class GenerateDeclarationsTask : DefaultTask() {
         }
         val extendsStr = if (extends.isEmpty()) "" else "extends ${extends.joinToString(",")}"
         val implementsStr = if (implements.isEmpty()) "" else "implements ${implements.joinToString(",")}"
-        val res = "$prefix $extendsStr $implementsStr {\n$properties\n\n$methods\n}"
+        val res = "$prefix $extendsStr $implementsStr {\n$instance\n$properties\n\n$methods\n}"
         return res
     }
 
-    private fun generateProperty(property: KProperty<*>, owningTypePackage: PackageData): String {
+    private fun generateProperty(property: KProperty<*>, owningTypePackage: Namespace): String {
         val name = property.name
         val type = generateType(property.returnType, owningTypePackage)
         return "$name: $type;"
     }
 
-    private fun generateMethod(method: KFunction<*>, owningTypePackage: PackageData): String {
+    private fun generateMethod(method: KFunction<*>, owningTypePackage: Namespace): String {
         val name = method.name
         val generic = if (method.typeParameters.isEmpty()) {
             ""
@@ -318,30 +376,33 @@ open class GenerateDeclarationsTask : DefaultTask() {
         return "$name$generic($parameters): $returnType;"
     }
 
-    private fun generateParameter(parameter: KParameter, index: Int, owningTypePackage: PackageData): String {
+    private fun generateParameter(parameter: KParameter, index: Int, owningTypePackage: Namespace): String {
         val name = parameter.name ?: "arg$index"
         val type = generateType(parameter.type, owningTypePackage)
         return "$name:$type"
     }
 
-    private fun generateType(ktype: KType, owningTypePackage: PackageData): String {
+    private fun generateType(ktype: KType, owningNamespace: Namespace): String {
         val kclass = ktype.classifier
         var qualifiedName = "unknown!"
         var signature = when (kclass) {
             is KClass<*> -> {
                 when {
                     kclass.java.isArray -> {
-                        val t = generateType(ktype.arguments.first().type!!, owningTypePackage)
+                        val t = generateType(ktype.arguments.first().type!!, owningNamespace)
                         "$t[]"
                     }
                     else -> {
                         qualifiedName = kclass.qualifiedName!!
                         val pkgName = qualifiedName.substringBeforeLast('.')
-                        val moduleVar = classModuleMap[qualifiedName]?.replace("-", "_") ?: "unknown!"
                         val name = when {
-                            pkgName == owningTypePackage.qualifiedName -> kclass.simpleName!!
-                            this.classModuleMap[qualifiedName] == owningTypePackage.moduleName -> qualifiedName
-                            else -> "$moduleVar.$qualifiedName"
+                            pkgName == owningNamespace.qualifiedName -> kclass.simpleName!!
+                            this.classModuleMap[qualifiedName] == owningNamespace.module -> qualifiedName
+                            else -> {
+                                val module = classModuleMap[qualifiedName] ?: Module.fetchOrCreate("unknown", qualifiedName)
+                                owningNamespace.usedModules.add(module)
+                                "${module.alias}.$qualifiedName"
+                            }
                         }
                         val typeArgs = if (kclass.typeParameters.isEmpty()) {
                             ""
@@ -350,7 +411,7 @@ open class GenerateDeclarationsTask : DefaultTask() {
                                 if (null == it.type) { //if * projection
                                     "any"
                                 } else {
-                                    generateType(it.type!!, owningTypePackage)
+                                    generateType(it.type!!, owningNamespace)
                                 }
                             }.joinToString(",")
                             "<$args>"
@@ -387,274 +448,14 @@ open class GenerateDeclarationsTask : DefaultTask() {
         return "enum $name {\n$literals\n}"
     }
 
-    /*
-        private fun createModel2(classPatterns: List<String>): Map<String, Any> {
-            LOGGER.info("Scanning classpath")
-            LOGGER.info("Including:")
-            classPatterns.forEach {
-                LOGGER.info("  ${it}")
-            }
-
-            val modules = fetchModules()
-            modules.forEach { moduleName, ktModule ->
-                println(moduleName)
-                ktModule.classes.forEach { cls ->
-                    println("  $cls")
-                }
-            }
-
-            val model = mutableMapOf<String, Any>()
-
-            return model
-        }
-
-        private fun fetchModules(): Map<String, KtMetaModule> {
-            val urls = mutableListOf<URL>()
-            val moduleNames = mutableListOf<String>()
-            val localBuild = project.buildDir.resolve("classes/kotlin/metadata/main")
-            val localUrl = localBuild.absoluteFile.toURI().toURL() //URL("file://"+localBuild.absoluteFile+"/")
-            urls.add(localUrl)
-            moduleNames.add(project.name)
-
-            val configurationName = "metadataDefault"
-            val c = this.project.configurations.findByName(configurationName) ?: throw RuntimeException("Cannot find $configurationName configuration")
-            c.isCanBeResolved = true
-            for (file in c.resolve()) {
-                try {
-                    LOGGER.debug("Adding url for $file")
-                    urls.add(file.toURI().toURL())
-                    moduleNames.add(project.name)
-                } catch (e: MalformedURLException) {
-                    LOGGER.error("Unable to create url for $file", e)
-                }
-
-            }
-            moduleNames.addAll(c.allDependencies.map { it.name })
-            val cl = URLClassLoader(urls.toTypedArray(), Thread.currentThread().contextClassLoader)
-
-            val modules = moduleNames.associate { moduleName ->
-                val moduleFileBytes = cl.getResourceAsStream("META-INF/$moduleName.kotlin_module").readAllBytes()
-                val module = fetchModule(moduleName, moduleFileBytes)
-                classPatterns.get().forEach {
-                    val pathPat = it.replace(".", "/")
-                    LOGGER.info("Finding class metadata in $pathPat")
-                    cl.getResourceAsStream("$pathPat").use { dirStrm ->
-                        val files = getResourceFiles(dirStrm)
-                        files.forEach {fileName ->
-                           val clsMetaBytes =  cl.getResourceAsStream("$pathPat/fileName").readAllBytes()
-                        }
-
-                    }
-                }
-                Pair(moduleName, module)
-            }
-            return modules
-        }
-
-        private fun fetchModule(moduleName: String, moduleFileBytes: ByteArray): KtMetaModule {
-            val metadata = KotlinModuleMetadata.read(moduleFileBytes) ?: throw RuntimeException("Module metadata not found for $moduleName")
-            val kmModule = metadata.toKmModule()
-            return KtMetaModule(kmModule)
-        }
-    */
-    private fun getResourceFiles(dirStrm: InputStream): List<String> {
-        val filenames = BufferedReader(InputStreamReader(dirStrm)).lines().toList()
-        return filenames;
-    }
-/*
-    private fun createModel(classPatterns: List<String>): Map<String, Any> {
-        LOGGER.info("Scanning classpath")
-        LOGGER.info("Including:")
-        classPatterns.forEach {
-            LOGGER.info("  ${it}")
-        }
-
-        createClassModuleMapping() //TODO: this is not very efficient, stuff is scanned more than once, here and further on
-
-        val clToGenerate = this.createClassLoaderForDecls()
-        val clForAll = this.createClassLoaderForAll()
-        val packages = mutableListOf<String>()
-        val classes = mutableListOf<String>()
-        classPatterns.forEach { pat ->
-            if (pat.endsWith(".*")) {
-                packages.add(pat.substringBeforeLast(".*"))
-            } else {
-                classes.add(pat)
-            }
-        }
-        val cg = ClassGraph()//
-                .ignoreParentClassLoaders()
-                .overrideClassLoaders(clToGenerate)//
-                .enableClassInfo()//
-                //.verbose()//
-                //.enableExternalClasses() //
-                //.enableAnnotationInfo() //
-                //.enableSystemPackages()//
-                .whitelistPackages(*packages.toTypedArray())
-                .whitelistClasses(*classes.toTypedArray())
-
-        val scan = cg.scan()
-        val classInfo = scan.allClasses.flatMap {
-            listOf(it) + it.innerClasses
-        }.toSet()
-
-        LOGGER.info("Building Datatype model for ${classInfo.size} types")
-
-        val comparator = Comparator { c1: ClassInfo, c2: ClassInfo ->
-            when {
-                c1 == c2 -> 0
-                c1.getSuperclasses().contains(c2) -> 1
-                c2.getSuperclasses().contains(c1) -> -1
-                else -> 0
-            }
-        }
-        val filtered = classInfo.filter {
-            try {
-                val kclass: KClass<*> = clForAll.loadClass(it.name).kotlin
-                kclass.isAbstract //this will throw exception if kotlin reflection not possible
-                when {
-                    kclass.isCompanion -> false
-                    else -> true
-
-                }
-            } catch (ex: Throwable) {
-                LOGGER.info("Skipping Class ${it.name} because kotlin reflection not supported on it")
-                false
-            }
-        }
-
-        val sorted = filtered.sortedWith(comparator)
-        val namespaceGroups = sorted.groupBy {
-            if (it.isInnerClass) {
-                it.name.substringBeforeLast("$") //TODO: handle more than one level of nesting (maybe just replace $ with . here
-            } else {
-                it.packageName
-            }
-        }
-
-        val model = mutableMapOf<String, Any>()
-
-        val imports = dependencies.get().map {
-            val m = mutableMapOf<String, Any>()
-            m["name"] = it
-            m["moduleVar"] = it.substringBeforeLast("-").replace("-", "_")
-            m
-        }
-        model["import"] = imports
-        val namespaces = mutableListOf<Map<String, Any>>()
-        model["namespace"] = namespaces
-        namespaceGroups.forEach { (nsn, classes) ->
-            println(nsn)
-            val namespace = mutableMapOf<String, Any>()
-            namespaces.add(namespace)
-            val datatypes = mutableListOf<Map<String, Any>>()
-            namespace["name"] = nsn
-            //TODO: this won't work if not enough subpackages
-            // fix to have proper nested namespaces
-            namespace["headName"] = nsn.substringBefore(".")
-            namespace["tailName"] = nsn.substringAfter(".")
-            namespace["datatype"] = datatypes
-            for (cls in classes) {
-                println(cls.name)
-                val kclass: KClass<*> = clForAll.loadClass(cls.name).kotlin
-                val pkgName = kclass.qualifiedName!!.substringBeforeLast('.')
-                val moduleName = this.classModuleMap[kclass.qualifiedName!!] ?: "unknown"
-
-
-                LOGGER.debug("Adding Class ${cls.name}")
-                val dtModel = mutableMapOf<String, Any>()
-                datatypes.add(dtModel)
-                dtModel["name"] = kclass.simpleName!!
-                dtModel["isInterface"] = cls.isInterface
-                dtModel["isAbstract"] = kclass.isAbstract && cls.isInterface.not()
-                dtModel["isEnum"] = cls.isEnum
-                dtModel["isObject"] = null != kclass.objectInstance
-
-                val extends_ = ArrayList<Map<String, Any>>()
-                val implements_ = ArrayList<Map<String, Any>>()
-                dtModel["extends"] = if (cls.isInterface) implements_ else extends_
-                dtModel["implements"] = if (cls.isInterface) emptyList<Map<String, Any>>() else implements_
-                kclass.supertypes.forEach { ktype ->
-                    val kclass = ktype.classifier as KClass<*>
-                    if (kclass == Any::class) {
-                        //donothing
-                    } else {
-                        val mt = this.createPropertyType2(ktype, PackageData(moduleName, pkgName))
-                        if (kclass.java.isInterface) {
-                            implements_.add(mt)
-                        } else {
-                            extends_.add(mt)
-                        }
-                    }
-                }
-
-                val property = mutableListOf<Map<String, Any>>()
-                dtModel["property"] = property
-                val method = mutableListOf<Map<String, Any>>()
-                dtModel["method"] = method
-
-                if (cls.isEnum) {
-                    kclass.java.enumConstants.forEach {
-                        val prop = mutableMapOf<String, Any>()
-                        prop["name"] = (it as Enum<*>).name
-                        property.add(prop)
-                    }
-                } else {
-                    /*
-                    kclass.staticProperties.forEach {
-                        println("  static $it")
-                        val prop = mutableMapOf<String, Any>()
-                        prop["name"] = it.name
-                        prop["isStatic"] = true
-                        prop["type"] = this.createPropertyType2(it.returnType, PackageData(moduleName, pkgName))
-                        property.add(prop)
-                    }
-                    kclass.staticFunctions.forEach {
-                        val meth = mutableMapOf<String, Any>()
-                        meth["name"] = it.name
-                        meth["isStatic"] = true
-                        meth["returnType"] = this.createPropertyType2(it.returnType, PackageData(moduleName, pkgName))
-                        method.add(meth)
-                    }
-                     */
-                    kclass.declaredMemberProperties.forEach {
-                        println("  $it")
-                        val prop = mutableMapOf<String, Any>()
-                        prop["name"] = it.name
-                        prop["isStatic"] = false
-                        prop["type"] = this.createPropertyType2(it.returnType, PackageData(moduleName, pkgName))
-                        property.add(prop)
-                    }
-                    kclass.declaredMemberFunctions.forEach {
-                        val meth = mutableMapOf<String, Any>()
-                        meth["name"] = it.name
-                        meth["isStatic"] = false
-                        meth["returnType"] = this.createPropertyType2(it.returnType, PackageData(moduleName, pkgName))
-                        val parameter = mutableListOf<Map<String, Any>>()
-                        meth["parameter"] = parameter
-                        it.parameters.forEach {
-                            val param = mutableMapOf<String, Any>()
-                            param["name"] = it.name ?: ""
-                            param["type"] = this.createPropertyType2(it.type, PackageData(moduleName, pkgName))
-                            parameter.add(param)
-                        }
-                        method.add(meth)
-                    }
-                }
-            }
-        }
-        return model
-    }
-*/
     private fun createClassLoaderForAll(): URLClassLoader {
         val urls = mutableListOf<URL>()
-        val forModules = moduleOnly.get()
         val localBuild = project.buildDir.resolve("classes/kotlin/${localJvmName.get()}/main")//project.tasks.getByName("jvm8MainClasses").outputs.files
         val localUrl = localBuild.absoluteFile.toURI().toURL() //URL("file://"+localBuild.absoluteFile+"/")
         urls.add(localUrl)
         val configurationName = modulesConfigurationName.get()
         val c = this.project.configurations.findByName(configurationName) ?: throw RuntimeException("Cannot find $configurationName configuration")
-        //c.isCanBeResolved = true
+        //TODO: would be better to use the metadata modules and auto find the jvm modules to use from the metadata
         c.resolvedConfiguration.resolvedArtifacts.forEach { dep ->
             val file = dep.file
             try {
@@ -670,16 +471,13 @@ open class GenerateDeclarationsTask : DefaultTask() {
     private fun createClassLoaderForDecls(): URLClassLoader {
         val urls = mutableListOf<URL>()
         val forModules = moduleOnly.get()
-        println("forModules = $forModules")
         val localBuild = project.buildDir.resolve("classes/kotlin/${localJvmName.get()}/main")//project.tasks.getByName("jvm8MainClasses").outputs.files
         val localUrl = localBuild.absoluteFile.toURI().toURL() //URL("file://"+localBuild.absoluteFile+"/")
         urls.add(localUrl)
         if (localOnly.get().not()) {
             val configurationName = modulesConfigurationName.get()
             val c = this.project.configurations.findByName(configurationName) ?: throw RuntimeException("Cannot find $configurationName configuration")
-            //c.isCanBeResolved = true
             c.resolvedConfiguration.resolvedArtifacts.forEach { dep ->
-                println("dep = ${dep.name}")
                 if (forModules.isEmpty() || forModules.contains(dep.name)) {
                     val file = dep.file
                     try {
@@ -694,31 +492,53 @@ open class GenerateDeclarationsTask : DefaultTask() {
         return URLClassLoader(urls.toTypedArray(), Thread.currentThread().contextClassLoader)
     }
 
-    private fun createClassModuleMapping() {
+    private fun createClassModuleMapping(thisModule:Module) {
         //hard code kotlin built-in types because scanning kotlin-stdlib.jar does not find them
-        val KOTLIN_STDLIB_MODULE = "kotlin-stdlib"
+        KOTLIN_STDLIB_MODULE.fetchOrCreateNamespace("kotlin")
+        this.classModuleMap[Throwable::class.qualifiedName!!] = KOTLIN_STDLIB_MODULE
+        this.classModuleMap[Exception::class.qualifiedName!!] = KOTLIN_STDLIB_MODULE
+        this.classModuleMap[RuntimeException::class.qualifiedName!!] = KOTLIN_STDLIB_MODULE
+        this.classModuleMap[Function::class.qualifiedName!!] = KOTLIN_STDLIB_MODULE
+        for(n in 1..25) {
+            this.classModuleMap["kotlin.Function$n"] = KOTLIN_STDLIB_MODULE
+        }
+        this.classModuleMap[Any::class.qualifiedName!!] = KOTLIN_STDLIB_MODULE
+        //this.classModuleMap[Array::class.qualifiedName!!] = KOTLIN_STDLIB_MODULE
         this.classModuleMap[Collection::class.qualifiedName!!] = KOTLIN_STDLIB_MODULE
         this.classModuleMap[List::class.qualifiedName!!] = KOTLIN_STDLIB_MODULE
         this.classModuleMap[Set::class.qualifiedName!!] = KOTLIN_STDLIB_MODULE
         this.classModuleMap[Map::class.qualifiedName!!] = KOTLIN_STDLIB_MODULE
         this.classModuleMap[Comparable::class.qualifiedName!!] = KOTLIN_STDLIB_MODULE
-        //this.classModuleMap[Pair::class.qualifiedName!!] = KOTLIN_STDLIB_MODULE
-        //this.classModuleMap[KClass::class.qualifiedName!!] = KOTLIN_STDLIB_MODULE
+        this.classModuleMap[String::class.qualifiedName!!] = KOTLIN_STDLIB_MODULE
+        this.classModuleMap[Char::class.qualifiedName!!] = KOTLIN_STDLIB_MODULE
+        this.classModuleMap[Boolean::class.qualifiedName!!] = KOTLIN_STDLIB_MODULE
+        this.classModuleMap[Number::class.qualifiedName!!] = KOTLIN_STDLIB_MODULE
+        this.classModuleMap[Byte::class.qualifiedName!!] = KOTLIN_STDLIB_MODULE
+        this.classModuleMap[Short::class.qualifiedName!!] = KOTLIN_STDLIB_MODULE
+        this.classModuleMap[Int::class.qualifiedName!!] = KOTLIN_STDLIB_MODULE
+        this.classModuleMap[Long::class.qualifiedName!!] = KOTLIN_STDLIB_MODULE
+        this.classModuleMap[Float::class.qualifiedName!!] = KOTLIN_STDLIB_MODULE
+        this.classModuleMap[Double::class.qualifiedName!!] = KOTLIN_STDLIB_MODULE
+        //TODO: other built in types ! i.e. CharArray etc
 
         val localBuild = project.buildDir.resolve("classes/kotlin/${localJvmName.get()}/main")
         val localUrl = localBuild.absoluteFile.toURI().toURL()
-        val moduleName = project.name
+
         fetchClassesFor(localUrl).forEach {
-            this.classModuleMap[it] = moduleName
+            this.classModuleMap[it] = thisModule
         }
 
         val configurationName = modulesConfigurationName.get()
         val c = this.project.configurations.findByName(configurationName) ?: throw RuntimeException("Cannot find $configurationName configuration")
         c.resolvedConfiguration.resolvedArtifacts.forEach { dep ->
-            val moduleName = if (dep.name == "kotlin-stdlib") dep.name else dep.name.substringBeforeLast("-")
+            val dn = when {
+                moduleNameMap.get().containsKey(dep.name) -> moduleNameMap.get()[dep.name]!!
+                dep.name.endsWith(localJvmName.get()) -> dep.name.substringBeforeLast("-")
+                else -> dep.name
+            }
+            val module = Module.fetchOrCreate(dep.moduleVersion.id.group, dn)
             fetchClassesFor(dep.file.toURI().toURL()).forEach {
-
-                this.classModuleMap[it] = moduleName
+                this.classModuleMap[it] = module
             }
         }
     }
@@ -737,69 +557,7 @@ open class GenerateDeclarationsTask : DefaultTask() {
             }
         }
     }
-
-    /*
-        private fun createMemberName(methodName: String): String {
-            return methodName.substring(3, 4).toLowerCase() + methodName.substring(4)
-        }
-    */
 /*
-    private fun _createPropertyType(ci: ClassInfo, tArgs: List<TypeArgument>, isRef: Boolean): MutableMap<String, Any> {
-        val mType = mutableMapOf<String, Any>()
-        val fullName = ci.getName()
-        mType["fullName"] = fullName
-        mType["name"] = fullName.substring(fullName.lastIndexOf('.') + 1)
-        if (ci.implementsInterface("kotlin.collections.Collection")) {
-            mType["isCollection"] = true
-            mType["isOrdered"] = "kotlin.collections.List" == ci.getName()
-
-            val et = this._createPropertyType(tArgs[0].getTypeSignature(), false) // what is isRef here!
-            LOGGER.info("Collection with elementType " + tArgs[0].getTypeSignature())
-            mType["elementType"] = et
-
-        } else if (ci.isEnum()) {
-            mType["isEnum"] = true
-        }
-        mType["isReference"] = isRef
-        return mType
-    }
-
-    private fun _createPropertyType(typeSig: TypeSignature, isRef: Boolean): Map<String, Any> {
-        var mType: MutableMap<String, Any> = mutableMapOf()
-        if (typeSig is BaseTypeSignature) {
-            val bts = typeSig as BaseTypeSignature
-            mType["name"] = bts.getTypeStr()
-            mType["fullName"] = bts.getTypeStr()
-        } else if (typeSig is ArrayTypeSignature) {
-            val rts = typeSig as ArrayTypeSignature
-            mType["name"] = "array"
-            mType["fullName"] = "array"
-            mType["isCollection"] = true
-            mType["elementType"] = this._createPropertyType(rts.getElementTypeSignature(), isRef)
-        } else if (typeSig is ClassRefTypeSignature) {
-            val cts = typeSig as ClassRefTypeSignature
-            if (null == cts.getClassInfo()) {
-                val fullName = cts.getFullyQualifiedClassName()
-                mType["fullName"] = fullName
-                mType["name"] = fullName.substring(fullName.lastIndexOf('.') + 1)
-                LOGGER.error("Unable to find class info for " + cts.getFullyQualifiedClassName())
-            } else {
-                mType = this._createPropertyType(cts.getClassInfo(), cts.getTypeArguments(), isRef)
-            }
-        } else {
-        }
-
-        val mappedName = this.typeMapping.get()[mType["fullName"]]
-        if (null == mappedName) {
-            return mType
-        } else {
-            LOGGER.debug("Mapping " + mType["name"] + " to " + mappedName)
-            mType["name"] = mappedName
-            return mType
-        }
-
-    }
-*/
     private fun createPropertyType2(ktype: KType, owningTypePackage: PackageData): Map<String, Any> {
         var mType: MutableMap<String, Any> = mutableMapOf()
         val kclass = ktype.classifier
@@ -840,16 +598,21 @@ open class GenerateDeclarationsTask : DefaultTask() {
     }
 
     private fun createPropertyTypeFromKClass(kclass: KClass<*>, owningTypePackage: PackageData): MutableMap<String, Any> {
-        val moduleVar = classModuleMap[kclass.qualifiedName!!]?.replace("-", "_") ?: "unknown"
+        val module = classModuleMap[kclass.qualifiedName!!] ?: Module.UNKNOWN
         val qualifiedName = kclass.qualifiedName!!
         var mType: MutableMap<String, Any> = mutableMapOf()
         val pkgName = qualifiedName.substringBeforeLast('.')
         mType["name"] = when {
             pkgName == owningTypePackage.qualifiedName -> kclass.simpleName!!
-            this.classModuleMap[qualifiedName] == owningTypePackage.moduleName -> qualifiedName
-            else -> "$moduleVar.$qualifiedName"
+            this.classModuleMap[qualifiedName] == owningTypePackage.module -> qualifiedName
+            else -> {
+                "$${module.alias}.$qualifiedName"
+                owningTypePackage.usedModules.add(module)
+            }
         }
         mType["isGeneric"] = kclass.typeParameters.isNotEmpty()
         return mType
     }
+
+ */
 }

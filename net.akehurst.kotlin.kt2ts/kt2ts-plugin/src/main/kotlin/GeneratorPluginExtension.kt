@@ -18,6 +18,7 @@ package net.akehurst.kotlin.kt2ts.plugin.gradle
 
 import org.gradle.api.Project
 import org.gradle.api.model.ObjectFactory
+import org.gradle.api.tasks.Input
 import java.io.File
 
 open class GeneratorPluginExtension(objects: ObjectFactory)  {
@@ -54,7 +55,8 @@ open class GeneratorPluginExtension(objects: ObjectFactory)  {
     var declarationsFile = objects.fileProperty()
     var classPatterns = objects.listProperty(String::class.java)
     var typeMapping = objects.mapProperty(String::class.java,String::class.java)
-    var dependencies = objects.listProperty(String::class.java)
+    //var dependencies = objects.listProperty(String::class.java)
+    var moduleNameMap = objects.mapProperty(String::class.java, String::class.java)
 
     var kotlinStdlibJsDir = objects.directoryProperty()
 
@@ -67,11 +69,14 @@ open class GeneratorPluginExtension(objects: ObjectFactory)  {
                 "kotlin.reflect.KClass" to "any", //not sure what else to use!
                 "kotlin.Unit" to "void",
                 "kotlin.Any" to "any",
+                "kotlin.Array" to "Array",
                 "kotlin.CharSequence" to "string",
+                "kotlin.Char" to "number",
                 "kotlin.String" to "string",
                 "kotlin.Number" to "number",
+                "kotlin.Byte" to "number",
+                "kotlin.Short" to "number",
                 "kotlin.Int" to "number",
-                "kotlin.Long" to "number",
                 "kotlin.Float" to "number",
                 "kotlin.Double" to "number",
                 "kotlin.Boolean" to "boolean",

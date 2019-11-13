@@ -4,6 +4,22 @@ export declare namespace kotlin {
 
     interface Comparable<T = any> {
     }
+
+    interface Function1<P1, R> {
+    }
+
+    interface Function2<P1,P2,R> {
+    }
+
+    interface Function3<P1,P2,P3,R> {
+    }
+
+    interface Function4<P1,P2,P3,P4,R> {
+    }
+
+    interface Function5<P1,P2,P3,P4,P5,R> {
+    }
+
 }
 export declare namespace kotlin.collections {
 
@@ -49,5 +65,10 @@ export declare namespace kotlin.collections.Map {
     interface Entry<K, V> {
         key: K;
         value: V;
+    }
+}
+
+export declare namespace kotlin.text {
+    interface Regex {
     }
 }
