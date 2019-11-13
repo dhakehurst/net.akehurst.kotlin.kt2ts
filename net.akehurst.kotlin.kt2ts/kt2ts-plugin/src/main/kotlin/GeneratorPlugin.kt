@@ -24,9 +24,9 @@ class GeneratorPlugin : Plugin<ProjectInternal> {
 
     override fun apply(project: ProjectInternal) {
         project.pluginManager.apply(BasePlugin::class.java)
-        val ext = project.extensions.create<GeneratorPluginExtension>(GeneratorPluginExtension.NAME, GeneratorPluginExtension::class.java)
+        val ext = project.extensions.create<GeneratorPluginExtension>(GeneratorPluginExtension.NAME, GeneratorPluginExtension::class.java, project)
         project.tasks.create(GeneratePackageJsonTask.NAME, GeneratePackageJsonTask::class.java) { tsk ->
-            tsk.packageJsonDir = ext.packageJsonDir
+            tsk.packageJsonDir = ext.outputDirectory
         }
         project.tasks.create(GenerateDeclarationsTask.NAME, GenerateDeclarationsTask::class.java) { gt ->
             //TODO: how to set dependsOn to "${ext.jvmName}MainClasses" ?
@@ -39,6 +39,8 @@ class GeneratorPlugin : Plugin<ProjectInternal> {
             gt.modulesConfigurationName = ext.modulesConfigurationName
             gt.classPatterns = ext.classPatterns
             gt.typeMapping = ext.typeMapping
+            gt.outputDirectory = ext.outputDirectory
+            gt.declarationsFile = ext.declarationsFile
             //gt.dependencies = ext.dependencies
             gt.moduleNameMap = ext.moduleNameMap
         }

@@ -50,15 +50,15 @@ open class GeneratePackageJsonTask : DefaultTask() {
     init {
         this.group = "generate"
         this.description = "Generate package.json file that defines 'types', or modify existing package.json file to add it"
-        this.moduleName.set(project.name)
-        this.moduleGroup.set(project.group as String)
-        this.moduleVersion.set(project.version as String)
+        this.moduleName.convention(project.name)
+        this.moduleGroup.convention(project.group as String)
+        this.moduleVersion.convention(project.version as String)
         val defaultMainFileName = if (moduleName.get().endsWith("-js")) {
             "${moduleGroup.get()}-${moduleName.get().substringBeforeLast("-js")}.js"
         } else {
             "${moduleGroup.get()}-${moduleName.get()}.js"
         }
-        this.mainFileName.set(defaultMainFileName)
+        this.mainFileName.convention(defaultMainFileName)
     }
 
     @TaskAction
@@ -67,8 +67,16 @@ open class GeneratePackageJsonTask : DefaultTask() {
         val _moduleGroup = moduleGroup.get()
         val _moduleName = moduleName.get()
         val _moduleVersion = moduleVersion.get()
-        val _mainFileName = mainFileName.get()
-
+        val _mainFileName = if (mainFileName.isPresent) {
+            mainFileName.get()
+        } else {
+            val defaultMainFileName = if (moduleName.get().endsWith("-js")) {
+                "${moduleGroup.get()}-${moduleName.get().substringBeforeLast("-js")}.js"
+            } else {
+                "${moduleGroup.get()}-${moduleName.get()}.js"
+            }
+            defaultMainFileName
+        }
         val json = readOrCreatePackageJson(_packageJsonFile, _moduleName, _moduleVersion, _mainFileName)
         val mutable = mutableMapOf<String, JsonElement>()
         mutable.putAll(json)

@@ -19,10 +19,8 @@ package net.akehurst.kotlin.kt2ts.plugin.gradle
 import io.github.classgraph.ClassGraph
 import io.github.classgraph.ClassInfo
 import org.gradle.api.DefaultTask
-import org.gradle.api.tasks.Input
-import org.gradle.api.tasks.Optional
-import org.gradle.api.tasks.OutputFile
-import org.gradle.api.tasks.TaskAction
+import org.gradle.api.file.ProjectLayout
+import org.gradle.api.tasks.*
 import org.slf4j.LoggerFactory
 import java.io.*
 import java.net.MalformedURLException
@@ -86,7 +84,7 @@ open class GenerateDeclarationsTask : DefaultTask() {
     companion object {
         val INDENT = "  "
         val NAME = "generateTypescriptDefinitionFile"
-        val KOTLIN_STDLIB_MODULE = Module.fetchOrCreate("org.jetbrains.kotlin", "kotlin-stdlib")
+        val KOTLIN_STDLIB_MODULE = Module.fetchOrCreate("", "kotlin")
         private val LOGGER = LoggerFactory.getLogger(GenerateDeclarationsTask::class.java)
     }
 
@@ -117,6 +115,9 @@ open class GenerateDeclarationsTask : DefaultTask() {
     @get:Input
     var modulesConfigurationName = project.objects.property(String::class.java)
 
+    @get:OutputDirectory
+    var outputDirectory = project.objects.directoryProperty()
+
     @get:OutputFile
     var declarationsFile = project.objects.fileProperty()
 
@@ -141,13 +142,16 @@ open class GenerateDeclarationsTask : DefaultTask() {
         this.group = "generate"
         this.description = "Generate typescript declaration file (*.d.ts) from kotlin classes"
 
-        this.moduleGroup.set(project.group as String)
-        this.moduleName.set(project.name)
-        this.overwrite.set(true)
-        this.localOnly.set(true)
-        this.localJvmName.set("jvm")
-        this.modulesConfigurationName.set("jvmRuntimeClasspath")
-        this.typeMapping.set(mapOf(
+        this.moduleGroup.convention(project.group as String)
+        this.moduleName.convention(project.name)
+        this.overwrite.convention(true)
+        this.localOnly.convention(true)
+        this.localJvmName.convention("jvm")
+        this.modulesConfigurationName.convention("jvmRuntimeClasspath")
+        val outDir = project.layout.buildDirectory.dir("tmp/jsJar/ts")
+        this.outputDirectory.convention(outDir)
+        this.declarationsFile.convention(outDir.get().file("${project.group}-${project.name}.d.ts"))
+        this.typeMapping.convention(mapOf(
                 "kotlin.reflect.KClass" to "any", //not sure what else to use!
                 "kotlin.Unit" to "void",
                 "kotlin.Any" to "any",
@@ -296,7 +300,7 @@ open class GenerateDeclarationsTask : DefaultTask() {
         val alias = module.alias
         val group = module.group
         val name = module.name
-        val file = "$group-$name"
+        val file = if (group.isEmpty()) "$name" else "$group-$name"
         return "import * as $alias from '$file';"
     }
 
@@ -327,14 +331,15 @@ open class GenerateDeclarationsTask : DefaultTask() {
             "<$tp>"
         }
         val prefix = when {
+            null != kclass.objectInstance -> "class ${name}_class"
             kclass.isAbstract -> "abstract class $name$typeParams"
             kclass.java.isInterface -> "interface $name$typeParams"
             else -> "class $name$typeParams"
         }
-        val instance = if (null == kclass.objectInstance) {
-            ""
+        val instance = if (null != kclass.objectInstance) {
+            "let $name: ${name}_class"
         } else {
-            "INSTANCE:$name".prependIndent(INDENT)
+            ""
         }
         val extends = mutableListOf<String>()
         val implements = mutableListOf<String>()
@@ -353,7 +358,7 @@ open class GenerateDeclarationsTask : DefaultTask() {
         }
         val extendsStr = if (extends.isEmpty()) "" else "extends ${extends.joinToString(",")}"
         val implementsStr = if (implements.isEmpty()) "" else "implements ${implements.joinToString(",")}"
-        val res = "$prefix $extendsStr $implementsStr {\n$instance\n$properties\n\n$methods\n}"
+        val res = "$prefix $extendsStr $implementsStr {\n$properties\n\n$methods\n}\n$instance"
         return res
     }
 
@@ -510,6 +515,7 @@ open class GenerateDeclarationsTask : DefaultTask() {
         this.classModuleMap[Map::class.qualifiedName!!] = KOTLIN_STDLIB_MODULE
         this.classModuleMap[Comparable::class.qualifiedName!!] = KOTLIN_STDLIB_MODULE
         this.classModuleMap[String::class.qualifiedName!!] = KOTLIN_STDLIB_MODULE
+        this.classModuleMap[CharSequence::class.qualifiedName!!] = KOTLIN_STDLIB_MODULE
         this.classModuleMap[Char::class.qualifiedName!!] = KOTLIN_STDLIB_MODULE
         this.classModuleMap[Boolean::class.qualifiedName!!] = KOTLIN_STDLIB_MODULE
         this.classModuleMap[Number::class.qualifiedName!!] = KOTLIN_STDLIB_MODULE
@@ -536,7 +542,12 @@ open class GenerateDeclarationsTask : DefaultTask() {
                 dep.name.endsWith(localJvmName.get()) -> dep.name.substringBeforeLast("-")
                 else -> dep.name
             }
-            val module = Module.fetchOrCreate(dep.moduleVersion.id.group, dn)
+            //kotlin js needs to find stuff in module 'kotlin' not 'kotlin-stdlib', so adding explicit check,
+            val module = if (dep.name.startsWith("kotlin-stdlib")) {
+                KOTLIN_STDLIB_MODULE
+            } else {
+                Module.fetchOrCreate(dep.moduleVersion.id.group, dn)
+            }
             fetchClassesFor(dep.file.toURI().toURL()).forEach {
                 this.classModuleMap[it] = module
             }

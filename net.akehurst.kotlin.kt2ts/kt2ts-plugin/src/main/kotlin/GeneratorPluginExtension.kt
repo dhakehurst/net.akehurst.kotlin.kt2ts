@@ -21,7 +21,7 @@ import org.gradle.api.model.ObjectFactory
 import org.gradle.api.tasks.Input
 import java.io.File
 
-open class GeneratorPluginExtension(objects: ObjectFactory)  {
+open class GeneratorPluginExtension(project: Project, objects: ObjectFactory)  {
 
     companion object {
         val NAME = "kt2ts"
@@ -51,7 +51,7 @@ open class GeneratorPluginExtension(objects: ObjectFactory)  {
      * name of the configuration to use for finding dependend modules
      */
     var modulesConfigurationName = objects.property(String::class.java)
-    var packageJsonDir = objects.directoryProperty()
+    var outputDirectory = objects.directoryProperty()
     var declarationsFile = objects.fileProperty()
     var classPatterns = objects.listProperty(String::class.java)
     var typeMapping = objects.mapProperty(String::class.java,String::class.java)
@@ -61,11 +61,14 @@ open class GeneratorPluginExtension(objects: ObjectFactory)  {
     var kotlinStdlibJsDir = objects.directoryProperty()
 
     init {
-        this.overwrite.set(true)
-        this.localOnly.set(true)
-        this.localJvmName.set("jvm")
-        this.modulesConfigurationName.set("jvmRuntimeClasspath")
-        this.typeMapping.set(mapOf(
+        this.overwrite.convention(true)
+        this.localOnly.convention(true)
+        this.localJvmName.convention("jvm")
+        this.modulesConfigurationName.convention("jvmRuntimeClasspath")
+        val outDir = project.layout.buildDirectory.dir("tmp/jsJar/ts")
+        this.outputDirectory.convention(outDir)
+        this.declarationsFile.convention(outDir.get().file("${project.group}-${project.name}.d.ts"))
+        this.typeMapping.convention(mapOf(
                 "kotlin.reflect.KClass" to "any", //not sure what else to use!
                 "kotlin.Unit" to "void",
                 "kotlin.Any" to "any",

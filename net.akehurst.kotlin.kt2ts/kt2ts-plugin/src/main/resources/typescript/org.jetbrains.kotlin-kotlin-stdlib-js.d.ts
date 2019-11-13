@@ -5,6 +5,11 @@ export declare namespace kotlin {
     interface Comparable<T = any> {
     }
 
+    interface Long {
+        low: number
+        high: number
+    }
+
     interface Function1<P1, R> {
     }
 
