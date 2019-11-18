@@ -1,7 +1,8 @@
 export declare namespace kotlin {
     interface Pair<F, S> {
     }
-
+    interface Triple<F, S, T> {
+    }
     interface Comparable<T = any> {
     }
 
@@ -75,5 +76,9 @@ export declare namespace kotlin.collections.Map {
 
 export declare namespace kotlin.text {
     interface Regex {
+    }
+}
+export declare namespace kotlin.coroutines {
+    interface Continuation<R> {
     }
 }
