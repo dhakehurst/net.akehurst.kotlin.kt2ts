@@ -1,0 +1,6 @@
+net.akehurst.kotlin.kt2ts
+
+Copyright 2019 Dr. David H. Akehurst
+
+This product includes software developed by
+Dr. David H. Akehurst (http://dr.david.h.akehurst.net/).
