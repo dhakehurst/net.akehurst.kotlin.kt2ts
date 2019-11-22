@@ -28,6 +28,13 @@ open class GeneratorPluginExtension(project: Project, objects: ObjectFactory)  {
     }
 
     /**
+     * name of the configuration to use for unpacking
+     */
+    var unpackConfigurationName = objects.property(String::class.java)
+
+    val nodeModulesDirectoryPath = objects.property(String::class.java)
+
+    /**
      * overwrite declaration file if it already exists [default false]
      */
     var overwrite = objects.property(Boolean::class.java)
@@ -58,6 +65,11 @@ open class GeneratorPluginExtension(project: Project, objects: ObjectFactory)  {
     //var dependencies = objects.listProperty(String::class.java)
     var moduleNameMap = objects.mapProperty(String::class.java, String::class.java)
 
+    /**
+     * modules to exclude, do not unpack
+     */
+    var excludeModules = objects.listProperty(String::class.java)
+
     var kotlinStdlibJsDir = objects.directoryProperty()
 
     init {
@@ -68,6 +80,13 @@ open class GeneratorPluginExtension(project: Project, objects: ObjectFactory)  {
         val outDir = project.layout.buildDirectory.dir("tmp/jsJar/ts")
         this.outputDirectory.convention(outDir)
         this.declarationsFile.convention(outDir.get().file("${project.group}-${project.name}.d.ts"))
+        this.excludeModules.convention(listOf(
+                "org.jetbrains.kotlin:kotlin-stdlib",
+                "org.jetbrains.kotlin:kotlin-stdlib-common",
+                "org.jetbrains.kotlin:kotlin-stdlib-js",
+                "org.jetbrains:annotations",
+                "org.jetbrains.kotlin:kotlin-reflect"
+        ))
         this.typeMapping.convention(mapOf(
                 "kotlin.reflect.KClass" to "any", //not sure what else to use!
                 "kotlin.Unit" to "void",
@@ -89,6 +108,7 @@ open class GeneratorPluginExtension(project: Project, objects: ObjectFactory)  {
                 "java.lang.Exception" to "Error",
                 "java.lang.RuntimeException" to "Error"
         ))
+
     }
 
 

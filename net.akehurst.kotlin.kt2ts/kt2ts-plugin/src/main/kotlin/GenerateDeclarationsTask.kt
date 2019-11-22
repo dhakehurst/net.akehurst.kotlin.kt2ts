@@ -179,9 +179,6 @@ open class GenerateDeclarationsTask : DefaultTask() {
     @TaskAction
     internal fun exec() {
         LOGGER.info("Executing $NAME")
-
-        //val model = this.createModel(this.classPatterns.get())
-        //val model2 = this.createModel2(this.classPatterns.get())
         val thisModule = Module.fetchOrCreate(this.moduleGroup.get(), this.moduleName.get())
 
         //val imports = listOf(KOTLIN_STDLIB_MODULE) + dependencies.get().map {
@@ -413,6 +410,7 @@ open class GenerateDeclarationsTask : DefaultTask() {
                             else -> {
                                 val module = classModuleMap[qualifiedName] ?: Module.fetchOrCreate("unknown", qualifiedName)
                                 owningNamespace.usedModules.add(module)
+                                println(" adding $module to $owningNamespace")
                                 "${module.alias}.$qualifiedName"
                             }
                         }
@@ -548,15 +546,18 @@ open class GenerateDeclarationsTask : DefaultTask() {
         val c = this.project.configurations.findByName(configurationName) ?: throw RuntimeException("Cannot find $configurationName configuration")
         c.resolvedConfiguration.resolvedArtifacts.forEach { dep ->
             val dn = when {
-                moduleNameMap.get().containsKey(dep.name) -> moduleNameMap.get()[dep.name]!!
                 dep.name.endsWith(localJvmName.get()) -> dep.name.substringBeforeLast("-")
                 else -> dep.name
             }
             //kotlin js needs to find stuff in module 'kotlin' not 'kotlin-stdlib', so adding explicit check,
-            val module = if (dep.name.startsWith("kotlin-stdlib")) {
-                KOTLIN_STDLIB_MODULE
-            } else {
-                Module.fetchOrCreate(dep.moduleVersion.id.group, dn)
+            val ref = "${dep.moduleVersion.id.group}:${dep.name}"
+            println("module for $ref")
+            val module = when {
+                dep.name.startsWith("kotlin-stdlib") -> {
+                    KOTLIN_STDLIB_MODULE
+                }
+                moduleNameMap.get().containsKey(ref) -> Module.fetchOrCreate("", moduleNameMap.get().get(ref)!!)
+                else -> Module.fetchOrCreate(dep.moduleVersion.id.group, dn)
             }
             fetchClassesFor(dep.file.toURI().toURL()).forEach {
                 this.classModuleMap[it] = module

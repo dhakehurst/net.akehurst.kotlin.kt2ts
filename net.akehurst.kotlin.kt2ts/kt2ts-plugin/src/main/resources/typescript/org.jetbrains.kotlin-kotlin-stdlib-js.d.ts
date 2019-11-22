@@ -34,7 +34,7 @@ export declare namespace kotlin.collections {
     interface Collection<E> {
         size: number;
 
-        toTypedArray(): E[];
+        toArray(): E[];
 
         add(element: E);
 

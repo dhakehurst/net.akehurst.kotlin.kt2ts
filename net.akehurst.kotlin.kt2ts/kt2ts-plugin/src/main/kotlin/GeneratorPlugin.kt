@@ -47,7 +47,12 @@ class GeneratorPlugin : Plugin<ProjectInternal> {
         project.tasks.create(AddKotlinStdlibDeclarationsTask.NAME, AddKotlinStdlibDeclarationsTask::class.java) { tsk ->
             tsk.outputDir = ext.kotlinStdlibJsDir
         }
-
+        project.tasks.create(UnpackJsModulesTask.NAME, UnpackJsModulesTask::class.java) { tsk ->
+            tsk.moduleNameMap = ext.moduleNameMap
+            tsk.nodeModulesDirectoryPath = ext.nodeModulesDirectoryPath
+            tsk.unpackConfigurationName = ext.unpackConfigurationName
+            tsk.excludeModules = ext.excludeModules
+        }
     }
 
 }

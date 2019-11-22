@@ -30,6 +30,27 @@ open class GeneratePackageJsonTask : DefaultTask() {
     companion object {
         val NAME = "generatePackageJsonWithTypes"
         private val LOGGER = LoggerFactory.getLogger(GeneratePackageJsonTask::class.java)
+
+        fun readOrCreatePackageJson(file: File, _moduleName: String, _moduleVersion: String, mainFileName: String): JsonObject {
+            val json = Json(JsonConfiguration.Stable)
+            return if (file.exists()) {
+                val json = Json(JsonConfiguration.Stable)
+                json.parseJson(file.readText()).jsonObject
+            } else {
+                file.parentFile.mkdirs()
+                file.printWriter().use { out ->
+                    out.println("""
+                        {
+                            "name": "${_moduleName}",
+                            "version": "${_moduleVersion}",
+                            "main": "./${mainFileName}"
+                        }
+                        """.trimIndent())
+                }
+                json.parseJson(file.readText()).jsonObject
+            }
+        }
+
     }
 
     @get:OutputDirectory
@@ -77,6 +98,7 @@ open class GeneratePackageJsonTask : DefaultTask() {
             }
             defaultMainFileName
         }
+        LOGGER.info("Creating new file $_packageJsonFile")
         val json = readOrCreatePackageJson(_packageJsonFile, _moduleName, _moduleVersion, _mainFileName)
         val mutable = mutableMapOf<String, JsonElement>()
         mutable.putAll(json)
@@ -88,23 +110,4 @@ open class GeneratePackageJsonTask : DefaultTask() {
         }
     }
 
-    private fun readOrCreatePackageJson(file: File, _moduleName: String, _moduleVersion: String, mainFileName: String): JsonObject {
-        val json = Json(JsonConfiguration.Stable)
-        return if (file.exists()) {
-            val json = Json(JsonConfiguration.Stable)
-            json.parseJson(file.readText()).jsonObject
-        } else {
-            LOGGER.info("Creating new file $file")
-            file.printWriter().use { out ->
-                out.println("""
-                {
-                    "name": "${_moduleName}",
-                    "version": "${_moduleVersion}",
-                    "main": "./${mainFileName}"
-                }
-                """.trimIndent())
-            }
-            json.parseJson(file.readText()).jsonObject
-        }
-    }
 }
