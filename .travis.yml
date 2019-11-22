@@ -1,7 +1,7 @@
 language: java
 
 before_install:
-  - cd net.akehurst.kotlinx
+  - cd net.akehurst.kotlin.kt2ts
   - chmod +x gradlew
 
 script: ./gradlew clean build
