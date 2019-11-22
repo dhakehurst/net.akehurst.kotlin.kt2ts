@@ -16,10 +16,15 @@
 
 package net.akehurst.kotlin.kt2ts.plugin.gradle
 
+import kotlinx.serialization.json.*
 import org.gradle.api.DefaultTask
-import org.gradle.api.tasks.*
+import org.gradle.api.tasks.Input
+import org.gradle.api.tasks.OutputDirectory
+import org.gradle.api.tasks.TaskAction
+
 import org.slf4j.LoggerFactory
 import java.io.File
+
 
 open class GeneratePackageJsonTask : DefaultTask() {
 
@@ -30,7 +35,6 @@ open class GeneratePackageJsonTask : DefaultTask() {
         fun readOrCreatePackageJson(file: File, _moduleName: String, _moduleVersion: String, mainFileName: String): JsonObject {
             val json = Json(JsonConfiguration.Stable)
             return if (file.exists()) {
-                val json = Json(JsonConfiguration.Stable)
                 json.parseJson(file.readText()).jsonObject
             } else {
                 file.parentFile.mkdirs()
@@ -46,23 +50,22 @@ open class GeneratePackageJsonTask : DefaultTask() {
                 json.parseJson(file.readText()).jsonObject
             }
         }
-
     }
 
     @get:OutputDirectory
-    var packageJsonDir = project.objects.directoryProperty()
+    val packageJsonDir = project.objects.directoryProperty()
 
     @get:Input
-    var moduleName = project.objects.property(String::class.java)
+    val moduleName = project.objects.property(String::class.java)
 
     @get:Input
-    var moduleGroup = project.objects.property(String::class.java)
+    val moduleGroup = project.objects.property(String::class.java)
 
     @get:Input
-    var moduleVersion = project.objects.property(String::class.java)
+    val moduleVersion = project.objects.property(String::class.java)
 
     @get:Input
-    var mainFileName = project.objects.property(String::class.java)
+    val mainFileName = project.objects.property(String::class.java)
 
     init {
         this.group = "generate"

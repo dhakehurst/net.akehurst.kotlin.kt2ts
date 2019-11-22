@@ -92,41 +92,41 @@ open class GenerateDeclarationsTask : DefaultTask() {
      * group name of the module to generate for [default project.group]
      */
     @get:Input
-    var moduleGroup = project.objects.property(String::class.java)
+    val moduleGroup = project.objects.property(String::class.java)
 
     /**
      * name of the module to generate for [default project.name]
      */
     @get:Input
-    var moduleName = project.objects.property(String::class.java)
+    val moduleName = project.objects.property(String::class.java)
 
     @get:Input
-    var overwrite = project.objects.property(Boolean::class.java)
+    val overwrite = project.objects.property(Boolean::class.java)
 
     @get:Input
-    var localOnly = project.objects.property(Boolean::class.java)
+    val localOnly = project.objects.property(Boolean::class.java)
 
     @get:Input
-    var moduleOnly = project.objects.listProperty(String::class.java)
+    val moduleOnly = project.objects.listProperty(String::class.java)
 
     @get:Input
-    var localJvmName = project.objects.property(String::class.java)
+    val localJvmName = project.objects.property(String::class.java)
 
     @get:Input
-    var modulesConfigurationName = project.objects.property(String::class.java)
+    val modulesConfigurationName = project.objects.property(String::class.java)
 
     @get:OutputDirectory
-    var outputDirectory = project.objects.directoryProperty()
+    val outputDirectory = project.objects.directoryProperty()
 
     @get:OutputFile
-    var declarationsFile = project.objects.fileProperty()
+    val declarationsFile = project.objects.fileProperty()
 
     @get:Input
-    var classPatterns = project.objects.listProperty(String::class.java)
+    val classPatterns = project.objects.listProperty(String::class.java)
 
     @get:Input
     @get:Optional
-    var typeMapping = project.objects.mapProperty(String::class.java, String::class.java)
+    val typeMapping = project.objects.mapProperty(String::class.java, String::class.java)
 
     //@get:Input
     //@get:Optional
@@ -134,9 +134,9 @@ open class GenerateDeclarationsTask : DefaultTask() {
 
     @get:Input
     @get:Optional
-    var moduleNameMap = project.objects.mapProperty(String::class.java, String::class.java)
+    val moduleNameMap = project.objects.mapProperty(String::class.java, String::class.java)
 
-    private var classModuleMap: MutableMap<String, Module> = mutableMapOf()
+    private val classModuleMap: MutableMap<String, Module> = mutableMapOf()
 
     init {
         this.group = "generate"
@@ -408,7 +408,6 @@ open class GenerateDeclarationsTask : DefaultTask() {
                             else -> {
                                 val module = classModuleMap[qualifiedName] ?: Module.fetchOrCreate("unknown", qualifiedName)
                                 owningNamespace.usedModules.add(module)
-                                println(" adding $module to $owningNamespace")
                                 "${module.alias}.$qualifiedName"
                             }
                         }
@@ -549,7 +548,6 @@ open class GenerateDeclarationsTask : DefaultTask() {
             }
             //kotlin js needs to find stuff in module 'kotlin' not 'kotlin-stdlib', so adding explicit check,
             val ref = "${dep.moduleVersion.id.group}:${dep.name}"
-            println("module for $ref")
             val module = when {
                 dep.name.startsWith("kotlin-stdlib") -> {
                     KOTLIN_STDLIB_MODULE

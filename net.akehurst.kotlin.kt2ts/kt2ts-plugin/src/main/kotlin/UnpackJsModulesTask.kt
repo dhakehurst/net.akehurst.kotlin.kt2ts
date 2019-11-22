@@ -28,17 +28,17 @@ open class UnpackJsModulesTask : DefaultTask() {
     }
 
     @get:Input
-    var unpackConfigurationName = project.objects.property(String::class.java)
+    val unpackConfigurationName = project.objects.property(String::class.java)
 
     @get:Input
-    var nodeModulesDirectoryPath = project.objects.property(String::class.java)
+    val nodeModulesDirectoryPath = project.objects.property(String::class.java)
 
     @get:Input
     @get:Optional
-    var moduleNameMap = project.objects.mapProperty(String::class.java, String::class.java)
+    val moduleNameMap = project.objects.mapProperty(String::class.java, String::class.java)
 
     @get:Input
-    var excludeModules = project.objects.listProperty(String::class.java)
+    val excludeModules = project.objects.listProperty(String::class.java)
 
     init {
         this.group = "angular"

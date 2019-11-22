@@ -30,7 +30,7 @@ open class AddKotlinStdlibDeclarationsTask : DefaultTask() {
     }
 
     @get:OutputDirectory
-    var outputDir = project.objects.directoryProperty()
+    val outputDir = project.objects.directoryProperty()
 
     init {
         this.group = "generate"

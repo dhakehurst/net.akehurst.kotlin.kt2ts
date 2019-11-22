@@ -25,7 +25,7 @@ import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 
 plugins {
-    kotlin("jvm") version ("1.3.60") apply false
+    kotlin("jvm") version ("1.3.50") apply false
     id("com.jfrog.bintray") version ("1.8.4") apply false
 }
 
@@ -93,7 +93,7 @@ subprojects {
         key = getProjectProperty("bintrayApiKey")
         publish = true
         override = true
-        setPublications("pluginMaven")
+        setPublications("default")
         pkg(delegateClosureOf<BintrayExtension.PackageConfig> {
             repo = "maven"
             name = "${rootProject.name}"

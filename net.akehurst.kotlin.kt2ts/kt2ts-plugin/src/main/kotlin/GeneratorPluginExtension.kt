@@ -28,47 +28,47 @@ open class GeneratorPluginExtension(project: Project, objects: ObjectFactory)  {
     /**
      * name of the configuration to use for unpacking
      */
-    var unpackConfigurationName = objects.property(String::class.java)
+    val unpackConfigurationName = objects.property(String::class.java)
 
     val nodeModulesDirectoryPath = objects.property(String::class.java)
 
     /**
      * overwrite declaration file if it already exists [default false]
      */
-    var overwrite = objects.property(Boolean::class.java)
+    val overwrite = objects.property(Boolean::class.java)
 
     /**
      * use only the classes defined in the local project (not any from dependencies) [default true]
      */
-    var localOnly = objects.property(Boolean::class.java)
+    val localOnly = objects.property(Boolean::class.java)
 
     /**
      * if not empty, only use classes from this module
      */
-    var moduleOnly = objects.listProperty(String::class.java)
+    val moduleOnly = objects.listProperty(String::class.java)
 
     /**
      * name of the jvm configuration for this module (locally build classes) [default 'jvm']
      */
-    var localJvmName = objects.property(String::class.java) //"commonMainImplementation"
+    val localJvmName = objects.property(String::class.java) //"commonMainImplementation"
 
     /**
      * name of the configuration to use for finding dependend modules
      */
-    var modulesConfigurationName = objects.property(String::class.java)
-    var outputDirectory = objects.directoryProperty()
-    var declarationsFile = objects.fileProperty()
-    var classPatterns = objects.listProperty(String::class.java)
-    var typeMapping = objects.mapProperty(String::class.java,String::class.java)
+    val modulesConfigurationName = objects.property(String::class.java)
+    val outputDirectory = objects.directoryProperty()
+    val declarationsFile = objects.fileProperty()
+    val classPatterns = objects.listProperty(String::class.java)
+    val typeMapping = objects.mapProperty(String::class.java,String::class.java)
     //var dependencies = objects.listProperty(String::class.java)
-    var moduleNameMap = objects.mapProperty(String::class.java, String::class.java)
+    val moduleNameMap = objects.mapProperty(String::class.java, String::class.java)
 
     /**
      * modules to exclude, do not unpack
      */
-    var excludeModules = objects.listProperty(String::class.java)
+    val excludeModules = objects.listProperty(String::class.java)
 
-    var kotlinStdlibJsDir = objects.directoryProperty()
+    val kotlinStdlibJsDir = objects.directoryProperty()
 
     init {
         this.overwrite.convention(true)

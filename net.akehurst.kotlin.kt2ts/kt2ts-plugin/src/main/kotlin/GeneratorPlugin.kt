@@ -26,32 +26,32 @@ class GeneratorPlugin : Plugin<ProjectInternal> {
         project.pluginManager.apply(BasePlugin::class.java)
         val ext = project.extensions.create<GeneratorPluginExtension>(GeneratorPluginExtension.NAME, GeneratorPluginExtension::class.java, project)
         project.tasks.create(GeneratePackageJsonTask.NAME, GeneratePackageJsonTask::class.java) { tsk ->
-            tsk.packageJsonDir = ext.outputDirectory
+            tsk.packageJsonDir.set(ext.outputDirectory)
         }
         project.tasks.create(GenerateDeclarationsTask.NAME, GenerateDeclarationsTask::class.java) { gt ->
             //TODO: how to set dependsOn to "${ext.jvmName}MainClasses" ?
             gt.dependsOn(GeneratePackageJsonTask.NAME)
-            gt.overwrite = ext.overwrite
-            gt.localOnly = ext.localOnly
-            gt.moduleOnly = ext.moduleOnly
-            gt.declarationsFile = ext.declarationsFile
-            gt.localJvmName = ext.localJvmName
-            gt.modulesConfigurationName = ext.modulesConfigurationName
-            gt.classPatterns = ext.classPatterns
-            gt.typeMapping = ext.typeMapping
-            gt.outputDirectory = ext.outputDirectory
-            gt.declarationsFile = ext.declarationsFile
+            gt.overwrite.set(ext.overwrite)
+            gt.localOnly.set(ext.localOnly)
+            gt.moduleOnly.set(ext.moduleOnly)
+            gt.declarationsFile.set(ext.declarationsFile)
+            gt.localJvmName.set(ext.localJvmName)
+            gt.modulesConfigurationName.set(ext.modulesConfigurationName)
+            gt.classPatterns.set(ext.classPatterns)
+            gt.typeMapping.set(ext.typeMapping)
+            gt.outputDirectory.set(ext.outputDirectory)
+            gt.declarationsFile.set(ext.declarationsFile)
             //gt.dependencies = ext.dependencies
-            gt.moduleNameMap = ext.moduleNameMap
+            gt.moduleNameMap.set(ext.moduleNameMap)
         }
         project.tasks.create(AddKotlinStdlibDeclarationsTask.NAME, AddKotlinStdlibDeclarationsTask::class.java) { tsk ->
-            tsk.outputDir = ext.kotlinStdlibJsDir
+            tsk.outputDir.set(ext.kotlinStdlibJsDir)
         }
         project.tasks.create(UnpackJsModulesTask.NAME, UnpackJsModulesTask::class.java) { tsk ->
-            tsk.moduleNameMap = ext.moduleNameMap
-            tsk.nodeModulesDirectoryPath = ext.nodeModulesDirectoryPath
-            tsk.unpackConfigurationName = ext.unpackConfigurationName
-            tsk.excludeModules = ext.excludeModules
+            tsk.moduleNameMap.set(ext.moduleNameMap)
+            tsk.nodeModulesDirectoryPath.set(ext.nodeModulesDirectoryPath)
+            tsk.unpackConfigurationName.set(ext.unpackConfigurationName)
+            tsk.excludeModules.set(ext.excludeModules)
         }
     }
 
