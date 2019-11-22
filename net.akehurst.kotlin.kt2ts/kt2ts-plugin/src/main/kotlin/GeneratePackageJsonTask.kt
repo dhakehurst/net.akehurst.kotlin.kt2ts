@@ -16,10 +16,6 @@
 
 package net.akehurst.kotlin.kt2ts.plugin.gradle
 
-import groovy.json.JsonSlurper
-import kotlinx.serialization.ImplicitReflectionSerializer
-import kotlinx.serialization.json.*
-import kotlinx.serialization.stringify
 import org.gradle.api.DefaultTask
 import org.gradle.api.tasks.*
 import org.slf4j.LoggerFactory

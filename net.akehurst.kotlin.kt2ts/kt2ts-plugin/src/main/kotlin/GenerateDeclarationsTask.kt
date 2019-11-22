@@ -19,19 +19,17 @@ package net.akehurst.kotlin.kt2ts.plugin.gradle
 import io.github.classgraph.ClassGraph
 import io.github.classgraph.ClassInfo
 import org.gradle.api.DefaultTask
-import org.gradle.api.file.ProjectLayout
 import org.gradle.api.tasks.*
 import org.slf4j.LoggerFactory
-import java.io.*
+import java.io.File
+import java.io.FileWriter
 import java.net.MalformedURLException
 import java.net.URL
 import java.net.URLClassLoader
-import kotlin.Comparator
 import kotlin.reflect.*
 import kotlin.reflect.full.declaredMemberFunctions
 import kotlin.reflect.full.declaredMemberProperties
 import kotlin.reflect.full.valueParameters
-import kotlin.streams.toList
 
 data class Module(
         val group: String,
