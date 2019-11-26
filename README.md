@@ -54,5 +54,5 @@ tasks.getByName("generateTypescriptDefinitionFile").dependsOn("jvm8MainClasses")
 tasks.getByName("jsJar").dependsOn("generateTypescriptDefinitionFile")
 ```
 
-## configure the plugin for thrid party modules
+## configure the plugin for third-party modules
   TODO
