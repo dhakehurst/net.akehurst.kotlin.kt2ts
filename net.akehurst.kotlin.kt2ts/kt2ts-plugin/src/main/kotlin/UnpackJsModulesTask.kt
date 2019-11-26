@@ -51,6 +51,28 @@ open class UnpackJsModulesTask : DefaultTask() {
                 "org.jetbrains:annotations",
                 "org.jetbrains.kotlin:kotlin-reflect"
         ))
+        this.moduleNameMap.convention(mapOf(
+                "org.jetbrains.kotlinx:kotlinx-coroutines-core-js" to "kotlinx-coroutines-core",
+                "org.jetbrains.kotlinx:kotlinx-coroutines-core" to "kotlinx-coroutines-core",
+                "org.jetbrains.kotlinx:kotlinx-coroutines-core-common" to "kotlinx-coroutines-core-common",
+                "org.jetbrains.kotlinx:kotlinx-coroutines-io-js" to "kotlinx-io-kotlinx-coroutines-io",
+                "org.jetbrains.kotlinx:kotlinx-coroutines-io" to "kotlinx-io-kotlinx-coroutines-io",
+                "org.jetbrains.kotlinx:kotlinx-io-js" to "kotlinx-io",
+                "org.jetbrains.kotlinx:kotlinx-io" to "kotlinx-io",
+                "org.jetbrains.kotlinx:atomicfu-common" to "kotlinx-atomicfu",
+                "org.jetbrains.kotlinx:atomicfu-js" to "kotlinx-atomicfu",
+                "org.jetbrains.kotlinx:atomicfu" to "kotlinx-atomicfu",
+                "io.ktor:ktor-http-cio-js" to "ktor-ktor-http-cio",
+                "io.ktor:ktor-http-cio" to "ktor-ktor-http-cio",
+                "io.ktor:ktor-client-core-js" to "ktor-ktor-client-core",
+                "io.ktor:ktor-client-core" to "ktor-ktor-client-core",
+                "io.ktor:ktor-client-websockets-js" to "ktor-ktor-client-websockets",
+                "io.ktor:ktor-client-websockets" to "ktor-ktor-client-websockets",
+                "io.ktor:ktor-http-js" to "ktor-ktor-http",
+                "io.ktor:ktor-http" to "ktor-ktor-http",
+                "io.ktor:ktor-utils-js" to "ktor-ktor-utils",
+                "io.ktor:ktor-utils" to "ktor-ktor-utils"
+        ))
     }
 
     @TaskAction

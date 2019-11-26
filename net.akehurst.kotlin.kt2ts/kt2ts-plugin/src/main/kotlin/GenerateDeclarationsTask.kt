@@ -172,6 +172,28 @@ open class GenerateDeclarationsTask : DefaultTask() {
                 "java.lang.Exception" to "Error",
                 "java.lang.RuntimeException" to "Error"
         ))
+        this.moduleNameMap.convention(mapOf(
+                "org.jetbrains.kotlinx:kotlinx-coroutines-core-js" to "kotlinx-coroutines-core",
+                "org.jetbrains.kotlinx:kotlinx-coroutines-core" to "kotlinx-coroutines-core",
+                "org.jetbrains.kotlinx:kotlinx-coroutines-core-common" to "kotlinx-coroutines-core-common",
+                "org.jetbrains.kotlinx:kotlinx-coroutines-io-js" to "kotlinx-io-kotlinx-coroutines-io",
+                "org.jetbrains.kotlinx:kotlinx-coroutines-io" to "kotlinx-io-kotlinx-coroutines-io",
+                "org.jetbrains.kotlinx:kotlinx-io-js" to "kotlinx-io",
+                "org.jetbrains.kotlinx:kotlinx-io" to "kotlinx-io",
+                "org.jetbrains.kotlinx:atomicfu-common" to "kotlinx-atomicfu",
+                "org.jetbrains.kotlinx:atomicfu-js" to "kotlinx-atomicfu",
+                "org.jetbrains.kotlinx:atomicfu" to "kotlinx-atomicfu",
+                "io.ktor:ktor-http-cio-js" to "ktor-ktor-http-cio",
+                "io.ktor:ktor-http-cio" to "ktor-ktor-http-cio",
+                "io.ktor:ktor-client-core-js" to "ktor-ktor-client-core",
+                "io.ktor:ktor-client-core" to "ktor-ktor-client-core",
+                "io.ktor:ktor-client-websockets-js" to "ktor-ktor-client-websockets",
+                "io.ktor:ktor-client-websockets" to "ktor-ktor-client-websockets",
+                "io.ktor:ktor-http-js" to "ktor-ktor-http",
+                "io.ktor:ktor-http" to "ktor-ktor-http",
+                "io.ktor:ktor-utils-js" to "ktor-ktor-utils",
+                "io.ktor:ktor-utils" to "ktor-ktor-utils"
+        ))
     }
 
     @TaskAction
@@ -392,7 +414,7 @@ open class GenerateDeclarationsTask : DefaultTask() {
     private fun generateType(ktype: KType, owningNamespace: Namespace): String {
         val kclass = ktype.classifier
         var qualifiedName = "unknown!"
-        var signature = when (kclass) {
+        var signature:String = when (kclass) {
             is KClass<*> -> {
                 when {
                     kclass.java.isArray -> {
@@ -411,19 +433,41 @@ open class GenerateDeclarationsTask : DefaultTask() {
                                 "${module.alias}.$qualifiedName"
                             }
                         }
-                        val typeArgs = if (kclass.typeParameters.isEmpty()) {
-                            ""
-                        } else {
-                            val args = ktype.arguments.map {
-                                if (null == it.type) { //if * projection
+                        when {
+                            qualifiedName.startsWith("kotlin.Function") -> {
+                                val lastTypeArg = ktype.arguments.last()
+                                val retType = if (null == lastTypeArg.type) { //if * projection
                                     "any"
                                 } else {
-                                    generateType(it.type!!, owningNamespace)
+                                    generateType(lastTypeArg.type!!, owningNamespace)
                                 }
-                            }.joinToString(",")
-                            "<$args>"
+                                var nextParamNum = 0
+                                val paramTypes = ktype.arguments.dropLast(1).map {
+                                    nextParamNum++
+                                    if (null == it.type) { //if * projection
+                                        "p$nextParamNum: any"
+                                    } else {
+                                        "p$nextParamNum: " + generateType(it.type!!, owningNamespace)
+                                    }
+                                }.joinToString(",")
+                                "($paramTypes)=>$retType"
+                            }
+                            else -> {
+                                val typeArgs = if (kclass.typeParameters.isEmpty()) {
+                                    ""
+                                } else {
+                                    val args = ktype.arguments.map {
+                                        if (null == it.type) { //if * projection
+                                            "any"
+                                        } else {
+                                            generateType(it.type!!, owningNamespace)
+                                        }
+                                    }.joinToString(",")
+                                    "<$args>"
+                                }
+                                "$name$typeArgs"
+                            }
                         }
-                        "$name$typeArgs"
                     }
                 }
 
@@ -438,16 +482,19 @@ open class GenerateDeclarationsTask : DefaultTask() {
         }
 
         val mappedName = this.typeMapping.get()[qualifiedName]
-        return if (null == mappedName) {
-            if (signature.contains("unknown!")) {
+        val finalSignature =  when {
+            null != mappedName -> {
+                LOGGER.debug("Mapping " + signature + " to " + mappedName)
+                mappedName
+            }
+            signature.contains("unknown!") -> {
                 "any /* $signature */"
-            } else {
+            }
+            else -> {
                 signature
             }
-        } else {
-            LOGGER.debug("Mapping " + signature + " to " + mappedName)
-            mappedName
         }
+        return finalSignature
     }
 
     private fun generateEnum(kclass: KClass<*>): String {
@@ -509,7 +556,7 @@ open class GenerateDeclarationsTask : DefaultTask() {
         this.classModuleMap[Exception::class.qualifiedName!!] = KOTLIN_STDLIB_MODULE
         this.classModuleMap[RuntimeException::class.qualifiedName!!] = KOTLIN_STDLIB_MODULE
         this.classModuleMap[Function::class.qualifiedName!!] = KOTLIN_STDLIB_MODULE
-        for (n in 1..25) {
+        for (n in 0..25) {
             this.classModuleMap["kotlin.Function$n"] = KOTLIN_STDLIB_MODULE
         }
         this.classModuleMap[Any::class.qualifiedName!!] = KOTLIN_STDLIB_MODULE

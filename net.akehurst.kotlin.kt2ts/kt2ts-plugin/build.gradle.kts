@@ -3,6 +3,7 @@ import org.jetbrains.kotlin.gradle.plugin.KotlinSourceSet
 plugins {
     `java-gradle-plugin`
     `maven-publish`
+    id("com.gradle.plugin-publish") version "0.10.1"
 }
 
 
@@ -14,6 +15,11 @@ dependencies {
     implementation("io.github.classgraph:classgraph:4.8.47")
     // implementation("org.jetbrains.kotlinx:kotlinx-metadata-jvm:0.1.0")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-runtime:0.13.0")
+}
+
+java {
+    sourceCompatibility = JavaVersion.VERSION_1_8
+    targetCompatibility = JavaVersion.VERSION_1_8
 }
 
 sourceSets["main"].withConvention(KotlinSourceSet::class) {
@@ -45,9 +51,25 @@ publishing {
 gradlePlugin {
     plugins {
         create("kt2ts") {
-            id = "net.akehurst.kotlin.kt2ts-plugin"
+            id = "net.akehurst.kotlin.kt2ts"
             implementationClass = "net.akehurst.kotlin.kt2ts.plugin.gradle.GeneratorPlugin"
         }
     }
 }
 
+pluginBundle {
+    website = "https://github.com/dhakehurst/net.akehurst.kotlin.kt2ts"
+    vcsUrl = "https://github.com/dhakehurst/net.akehurst.kotlin.kt2ts.git"
+
+    (plugins) {
+
+        // first plugin
+        "kt2ts" {
+            // id is captured from java-gradle-plugin configuration
+            displayName = "Kotlin to Typescript declarations"
+            description = "Generate Typescript declarations for Kotlin modules"
+            tags = listOf("kotlin", "typescript")
+        }
+    }
+
+}

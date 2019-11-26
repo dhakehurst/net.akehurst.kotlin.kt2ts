@@ -33,9 +33,9 @@ open class GeneratorPluginExtension(project: Project, objects: ObjectFactory)  {
     val nodeModulesDirectoryPath = objects.property(String::class.java)
 
     /**
-     * overwrite declaration file if it already exists [default false]
+     * overwrite declaration file if it already exists [default true]
      */
-    val overwrite = objects.property(Boolean::class.java)
+    val overwrite = objects.property(Boolean::class.java) //TODO: not sure this is useful!
 
     /**
      * use only the classes defined in the local project (not any from dependencies) [default true]
@@ -53,7 +53,7 @@ open class GeneratorPluginExtension(project: Project, objects: ObjectFactory)  {
     val localJvmName = objects.property(String::class.java) //"commonMainImplementation"
 
     /**
-     * name of the configuration to use for finding dependend modules
+     * name of the configuration to use for finding depended modules [default 'jvmRuntimeClasspath']
      */
     val modulesConfigurationName = objects.property(String::class.java)
     val outputDirectory = objects.directoryProperty()
@@ -106,7 +106,28 @@ open class GeneratorPluginExtension(project: Project, objects: ObjectFactory)  {
                 "java.lang.Exception" to "Error",
                 "java.lang.RuntimeException" to "Error"
         ))
-
+        this.moduleNameMap.convention(mapOf(
+                "org.jetbrains.kotlinx:kotlinx-coroutines-core-js" to "kotlinx-coroutines-core",
+                "org.jetbrains.kotlinx:kotlinx-coroutines-core" to "kotlinx-coroutines-core",
+                "org.jetbrains.kotlinx:kotlinx-coroutines-core-common" to "kotlinx-coroutines-core-common",
+                "org.jetbrains.kotlinx:kotlinx-coroutines-io-js" to "kotlinx-io-kotlinx-coroutines-io",
+                "org.jetbrains.kotlinx:kotlinx-coroutines-io" to "kotlinx-io-kotlinx-coroutines-io",
+                "org.jetbrains.kotlinx:kotlinx-io-js" to "kotlinx-io",
+                "org.jetbrains.kotlinx:kotlinx-io" to "kotlinx-io",
+                "org.jetbrains.kotlinx:atomicfu-common" to "kotlinx-atomicfu",
+                "org.jetbrains.kotlinx:atomicfu-js" to "kotlinx-atomicfu",
+                "org.jetbrains.kotlinx:atomicfu" to "kotlinx-atomicfu",
+                "io.ktor:ktor-http-cio-js" to "ktor-ktor-http-cio",
+                "io.ktor:ktor-http-cio" to "ktor-ktor-http-cio",
+                "io.ktor:ktor-client-core-js" to "ktor-ktor-client-core",
+                "io.ktor:ktor-client-core" to "ktor-ktor-client-core",
+                "io.ktor:ktor-client-websockets-js" to "ktor-ktor-client-websockets",
+                "io.ktor:ktor-client-websockets" to "ktor-ktor-client-websockets",
+                "io.ktor:ktor-http-js" to "ktor-ktor-http",
+                "io.ktor:ktor-http" to "ktor-ktor-http",
+                "io.ktor:ktor-utils-js" to "ktor-ktor-utils",
+                "io.ktor:ktor-utils" to "ktor-ktor-utils"
+        ))
     }
 
 

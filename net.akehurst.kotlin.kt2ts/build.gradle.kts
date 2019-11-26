@@ -17,8 +17,7 @@
 import com.jfrog.bintray.gradle.BintrayExtension
 import com.jfrog.bintray.gradle.tasks.BintrayUploadTask
 import org.gradle.api.publish.maven.internal.artifact.FileBasedMavenArtifact
-import org.jetbrains.kotlin.gradle.dsl.KotlinJvmProjectExtension
-import org.jetbrains.kotlin.gradle.dsl.KotlinMultiplatformExtension
+import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 import java.io.File
 import java.time.Instant
 import java.time.ZoneId
@@ -86,6 +85,12 @@ subprojects {
     dependencies {
         "implementation"(kotlin("stdlib-jdk8"))
         "implementation"(kotlin("test-junit"))
+    }
+
+    tasks.withType<KotlinCompile>().configureEach {
+        kotlinOptions {
+            jvmTarget = "1.8"
+        }
     }
 
     configure<BintrayExtension> {
