@@ -12,15 +12,15 @@ The plugin addresses two use cases:
 
 ## Add the plugin
 
-`
+```
 plugins {
     id("net.akehurst.kotlin.kt2ts") version "1.0.0"
 }
-`
+```
 
 ## configure the plugin for your own modules
 
-`
+```
 // store this value, you need it in more than one place
 val tsdDir ="${buildDir}/tmp/jsJar/ts"
 
@@ -52,7 +52,7 @@ kt2ts {
 }
 tasks.getByName("generateTypescriptDefinitionFile").dependsOn("jvm8MainClasses")
 tasks.getByName("jsJar").dependsOn("generateTypescriptDefinitionFile")
-`
+```
 
 ## configure the plugin for thrid party modules
   TODO
