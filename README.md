@@ -55,4 +55,4 @@ tasks.getByName("jsJar").dependsOn("generateTypescriptDefinitionFile")
 ```
 
 ## configure the plugin for third-party modules
-  TODO
+  doc TODO
