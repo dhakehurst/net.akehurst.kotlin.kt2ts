@@ -31,7 +31,7 @@ open class UnpackJsModulesTask : DefaultTask() {
     val unpackConfigurationName = project.objects.property(String::class.java)
 
     @get:Input
-    val nodeModulesDirectoryPath = project.objects.property(String::class.java)
+    val nodeModulesDirectory = project.objects.directoryProperty()
 
     @get:Input
     @get:Optional
@@ -83,7 +83,7 @@ open class UnpackJsModulesTask : DefaultTask() {
             if (this.excludeModules.get().contains("${dep.moduleVersion.id.group}:${dep.name}")) {
                 // do not unpack
             } else {
-                println("unpacking ${dep.name}")
+                LOGGER.debug("unpacking ${dep.name}")
                 val dn = dep.name.substringBeforeLast("-")
                 val tgtName = moduleNameMap.get().get("${dep.moduleVersion.id.group}:${dep.name}") ?: "${dep.moduleVersion.id.group}-${dn}"
                 project.copy {
@@ -96,9 +96,9 @@ open class UnpackJsModulesTask : DefaultTask() {
                         }
                         it.into(tgtName)
                     }
-                    it.into("${nodeModulesDirectoryPath.get()}")
+                    it.into(nodeModulesDirectory.get())
                 }
-                val packageJsonFile = project.file("${nodeModulesDirectoryPath.get()}/$tgtName/package.json")
+                val packageJsonFile = nodeModulesDirectory.file("$tgtName/package.json").get().asFile
                 if (packageJsonFile.exists()) {
                     //do nothing
                 } else {

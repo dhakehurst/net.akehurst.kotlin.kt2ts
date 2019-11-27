@@ -19,6 +19,7 @@ package net.akehurst.kotlin.kt2ts.plugin.gradle
 import kotlinx.serialization.json.*
 import org.gradle.api.DefaultTask
 import org.gradle.api.tasks.Input
+import org.gradle.api.tasks.Optional
 import org.gradle.api.tasks.OutputDirectory
 import org.gradle.api.tasks.TaskAction
 
@@ -56,12 +57,19 @@ open class GeneratePackageJsonTask : DefaultTask() {
     val packageJsonDir = project.objects.directoryProperty()
 
     @get:Input
+    @get:Optional
+    val moduleGAV = project.objects.property(String::class.java)
+
+    @get:Input
+    @get:Optional
     val moduleName = project.objects.property(String::class.java)
 
     @get:Input
+    @get:Optional
     val moduleGroup = project.objects.property(String::class.java)
 
     @get:Input
+    @get:Optional
     val moduleVersion = project.objects.property(String::class.java)
 
     @get:Input
@@ -70,9 +78,10 @@ open class GeneratePackageJsonTask : DefaultTask() {
     init {
         this.group = "generate"
         this.description = "Generate package.json file that defines 'types', or modify existing package.json file to add it"
-        this.moduleName.convention(project.name)
-        this.moduleGroup.convention(project.group as String)
-        this.moduleVersion.convention(project.version as String)
+        this.moduleGAV.convention("${project.group}:${project.name}:${project.version}")
+        this.moduleGroup.convention(moduleGAV.map { it.split(':')[0] })
+        this.moduleName.convention(moduleGAV.map { it.split(':')[1] })
+        this.moduleVersion.convention(moduleGAV.map { it.split(':')[2] })
         val defaultMainFileName = if (moduleName.get().endsWith("-js")) {
             "${moduleGroup.get()}-${moduleName.get().substringBeforeLast("-js")}.js"
         } else {

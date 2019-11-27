@@ -19,18 +19,56 @@ package net.akehurst.kotlin.kt2ts.plugin.gradle
 import org.gradle.api.Project
 import org.gradle.api.model.ObjectFactory
 
-open class GeneratorPluginExtension(project: Project, objects: ObjectFactory)  {
+open class GeneratorPluginExtension(project: Project, objects: ObjectFactory) {
 
     companion object {
         val NAME = "kt2ts"
     }
 
+    val createAngularTasks = objects.property(Boolean::class.java)
+
+    /**
+     * directory where the angular code is perhaps "${project.projectDir}/src/angular"
+     * when this value is set, the angular build tasks are created
+     */
+    val ngSrcDirectory = objects.directoryProperty()
+
+    val ngBuildAdditionalArguments = objects.listProperty(String::class.java)
+
+    /**
+     * directory where build angular code is output default [${project.buildDir}/angular]
+     */
+    val ngOutDirectory = objects.directoryProperty()
+
+    /**
+     * name of the configuration to use for finding depended modules [default 'jvmRuntimeClasspath']
+     */
+    val ngConfigurationName = objects.property(String::class.java)
+
+    val nodeModulesDirectory = objects.directoryProperty()
+
+    val kotlinStdlibJsDirectory = objects.directoryProperty()
+
+
     /**
      * name of the configuration to use for unpacking
      */
-    val unpackConfigurationName = objects.property(String::class.java)
+    // val unpackConfigurationName = objects.property(String::class.java)
 
-    val nodeModulesDirectoryPath = objects.property(String::class.java)
+
+    val generateThirdPartyModules = objects.domainObjectContainer(GenerateThirdPartyModuleConfig::class.java)
+
+    //--- configuration for generating tsd on self
+
+    /**
+     * name of the source set to add the .d.ts and package.json files to [jsMain]
+     */
+    val jsSourceSetName = objects.property(String::class.java)
+
+    /**
+     * name of the directory into which the files are generated [{buildDir}/tmp/jsJar/ts]
+     */
+    val tsdOutputDirectory = objects.directoryProperty()
 
     /**
      * overwrite declaration file if it already exists [default true]
@@ -45,21 +83,16 @@ open class GeneratorPluginExtension(project: Project, objects: ObjectFactory)  {
     /**
      * if not empty, only use classes from this module
      */
-    val moduleOnly = objects.listProperty(String::class.java)
+    val includeOnly = objects.listProperty(String::class.java)
 
     /**
      * name of the jvm configuration for this module (locally build classes) [default 'jvm']
      */
     val localJvmName = objects.property(String::class.java) //"commonMainImplementation"
 
-    /**
-     * name of the configuration to use for finding depended modules [default 'jvmRuntimeClasspath']
-     */
-    val modulesConfigurationName = objects.property(String::class.java)
-    val outputDirectory = objects.directoryProperty()
     val declarationsFile = objects.fileProperty()
     val classPatterns = objects.listProperty(String::class.java)
-    val typeMapping = objects.mapProperty(String::class.java,String::class.java)
+    val typeMapping = objects.mapProperty(String::class.java, String::class.java)
     //var dependencies = objects.listProperty(String::class.java)
     val moduleNameMap = objects.mapProperty(String::class.java, String::class.java)
 
@@ -68,16 +101,24 @@ open class GeneratorPluginExtension(project: Project, objects: ObjectFactory)  {
      */
     val excludeModules = objects.listProperty(String::class.java)
 
-    val kotlinStdlibJsDir = objects.directoryProperty()
 
     init {
+        // angular build configuration
+        this.createAngularTasks.convention(true)
+        //this.ngSrcDirectory.convention("${project.projectDir}/src/angular")
+        this.jsSourceSetName.convention("jsMain")
+        this.ngConfigurationName.convention("ngKotlin")
+        this.ngOutDirectory.convention( project.layout.buildDirectory.dir("angular") )
+        this.nodeModulesDirectory.convention(this.ngSrcDirectory.map { it.dir("node_modules") })
+        this.kotlinStdlibJsDirectory.convention(this.nodeModulesDirectory.map { it.dir("kotlin") })
+
+        val tsOutDir = project.layout.buildDirectory.dir("tmp/jsJar/ts")
+        this.tsdOutputDirectory.convention(tsOutDir)
         this.overwrite.convention(true)
         this.localOnly.convention(true)
         this.localJvmName.convention("jvm")
-        this.modulesConfigurationName.convention("jvmRuntimeClasspath")
-        val outDir = project.layout.buildDirectory.dir("tmp/jsJar/ts")
-        this.outputDirectory.convention(outDir)
-        this.declarationsFile.convention(outDir.get().file("${project.group}-${project.name}.d.ts"))
+
+        this.declarationsFile.convention(tsdOutputDirectory.file("${project.group}-${project.name}.d.ts"))
         this.excludeModules.convention(listOf(
                 "org.jetbrains.kotlin:kotlin-stdlib",
                 "org.jetbrains.kotlin:kotlin-stdlib-common",
@@ -130,6 +171,29 @@ open class GeneratorPluginExtension(project: Project, objects: ObjectFactory)  {
         ))
     }
 
+}
 
+open class GenerateThirdPartyModuleConfig constructor(val name: String, objects: ObjectFactory) {
+
+    val moduleGAV = objects.property(String::class.java)
+
+    /**
+     * if not empty, only use classes from this module
+     */
+    val includeOnly = objects.listProperty(String::class.java)
+
+    val moduleGroup = objects.property(String::class.java)
+    val moduleName = objects.property(String::class.java)
+    val moduleVersion = objects.property(String::class.java)
+    val mainFileName = objects.property(String::class.java)
+    val tgtName = objects.property(String::class.java)
+    val classPatterns = objects.listProperty(String::class.java)
+
+    init {
+        this.moduleGAV.convention(this.name)
+        this.moduleGroup.convention(moduleGAV.map { it.split(':')[0] })
+        this.moduleName.convention(moduleGAV.map { it.split(':')[1] })
+        this.moduleVersion.convention(moduleGAV.map { it.split(':')[2] })
+    }
 
 }

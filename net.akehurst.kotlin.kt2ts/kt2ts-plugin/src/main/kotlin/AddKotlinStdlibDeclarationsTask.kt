@@ -29,8 +29,8 @@ open class AddKotlinStdlibDeclarationsTask : DefaultTask() {
         private val LOGGER = LoggerFactory.getLogger(AddKotlinStdlibDeclarationsTask::class.java)
     }
 
-    @get:OutputDirectory
-    val outputDir = project.objects.directoryProperty()
+    @get:Input
+    val outputDirectory = project.objects.directoryProperty()
 
     init {
         this.group = "generate"
@@ -39,12 +39,14 @@ open class AddKotlinStdlibDeclarationsTask : DefaultTask() {
 
     @TaskAction
     internal fun exec() {
+        val outputDir = this.outputDirectory.get().asFile
+        outputDir.mkdirs()
         val text = this::class.java.getResource(DEFAULT_KOTLIN_STDLIB).readText()
-        val declFile = outputDir.get().file(KOTLIN_STDLIB_DECL_FILE_NAME).asFile
+        val declFile = outputDir.resolve(KOTLIN_STDLIB_DECL_FILE_NAME)
         declFile.printWriter().use { out ->
             out.println(text)
         }
-        val jsonFile = outputDir.get().file("package.json").asFile
+        val jsonFile = outputDir.resolve("package.json")
         jsonFile.printWriter().use { out ->
             out.println("""
                 {

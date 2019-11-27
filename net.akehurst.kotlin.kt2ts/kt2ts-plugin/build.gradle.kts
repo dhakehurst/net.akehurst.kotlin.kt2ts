@@ -11,6 +11,8 @@ dependencies {
     implementation(gradleApi())
     //implementation(localGroovy())
 
+    implementation("org.jetbrains.kotlin:kotlin-gradle-plugin:1.3.60")
+
     //implementation("com.google.code.gson:gson:2.8.6")
     implementation("io.github.classgraph:classgraph:4.8.47")
     // implementation("org.jetbrains.kotlinx:kotlinx-metadata-jvm:0.1.0")
