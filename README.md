@@ -14,35 +14,17 @@ The plugin addresses two use cases:
 
 ```
 plugins {
-    id("net.akehurst.kotlin.kt2ts") version "1.0.0"
+    id("net.akehurst.kotlin.kt2ts") version "1.1.0"
 }
 ```
 
 ## configure the plugin for your own modules
 
 ```
-// store this value, you need it in more than one place
-val tsdDir ="${buildDir}/tmp/jsJar/ts"
-
-// add the generated .d.ts file to the module resources
-kotlin {
-    sourceSets {
-        val jsMain by getting {
-            resources.srcDir("${tsdDir}")
-        }
-    }
-}
-
 // configure the kt2ts plugin
 kt2ts {
     // name of the jvm configuration for this module (locally build classes) [default 'jvm']
     localJvmName.set("jvm8")
-    
-    // name of the configuration to use for finding depended modules [default 'jvmRuntimeClasspath']
-    modulesConfigurationName.set("jvm8RuntimeClasspath")
-    
-    // directory to output generated files into
-    outputDirectory.set(file("${tsdDir}"))
     
     // list of qualified class names to generate declarations for
     // '*' means all classes in the package
@@ -50,8 +32,6 @@ kt2ts {
             "net.akehurst.kotlin.example.addressbook.information.*"
     ))
 }
-tasks.getByName("generateTypescriptDefinitionFile").dependsOn("jvm8MainClasses")
-tasks.getByName("jsJar").dependsOn("generateTypescriptDefinitionFile")
 ```
 
 ## configure the plugin for third-party modules
