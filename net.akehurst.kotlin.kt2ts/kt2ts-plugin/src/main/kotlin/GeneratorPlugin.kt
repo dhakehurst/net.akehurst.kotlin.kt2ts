@@ -85,7 +85,8 @@ class GeneratorPlugin : Plugin<ProjectInternal> {
 
 
             ext.generateThirdPartyModules.forEach { cfg ->
-                project.tasks.create("generateDeclarationsFor_${cfg.moduleName}", GenerateDeclarationsTask::class.java) { tsk ->
+                //TODO: '${cfg.moduleName.get()}' might not be unque!
+                project.tasks.create("generateDeclarationsFor_${cfg.moduleName.get()}", GenerateDeclarationsTask::class.java) { tsk ->
                     tsk.group = "generate"
                     tsk.dependsOn("unpack_kotlin_js")
                     tsk.localJvmName.set(ext.localJvmName)
@@ -101,9 +102,9 @@ class GeneratorPlugin : Plugin<ProjectInternal> {
                         it.dir(cfg.tgtName).map { it.file("${tsk.moduleGroup.get()}-${tsk.moduleName.get()}-js.d.ts") }
                     })
                 }
-                project.tasks.create("ensurePackageJsonFor_${cfg.moduleName}", GeneratePackageJsonTask::class.java) { tsk ->
+                project.tasks.create("ensurePackageJsonFor_${cfg.moduleName.get()}", GeneratePackageJsonTask::class.java) { tsk ->
                     tsk.group = "generate"
-                    tsk.dependsOn("generateDeclarationsFor_${cfg.name}")
+                    tsk.dependsOn("generateDeclarationsFor_${cfg.moduleName.get()}")
                     tsk.packageJsonDir.set(ext.nodeModulesDirectory.flatMap {
                         it.dir(cfg.tgtName)
                     })
