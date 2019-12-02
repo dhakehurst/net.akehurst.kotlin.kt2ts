@@ -14,7 +14,7 @@ The plugin addresses two use cases:
 
 ```
 plugins {
-    id("net.akehurst.kotlin.kt2ts") version "1.1.0"
+    id("net.akehurst.kotlin.kt2ts") version "1.2.0"
 }
 ```
 
@@ -24,7 +24,7 @@ plugins {
 // configure the kt2ts plugin
 kt2ts {
     // name of the jvm configuration for this module (locally build classes) [default 'jvm']
-    localJvmName.set("jvm8")
+    jvmTargetName.set("jvm8")
     
     // list of qualified class names to generate declarations for
     // '*' means all classes in the package
