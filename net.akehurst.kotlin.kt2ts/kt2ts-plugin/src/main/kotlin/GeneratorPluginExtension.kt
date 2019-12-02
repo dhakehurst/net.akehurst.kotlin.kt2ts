@@ -49,6 +49,11 @@ open class GeneratorPluginExtension(project: Project, objects: ObjectFactory) {
 
     val kotlinStdlibJsDirectory = objects.directoryProperty()
 
+    /**
+     * list of modules that are imported/required dynamically.
+     * i.e. those that have been registered for import vi 'net.akehurst.kotlinx.reflect.ModuleRegistry.register'
+     */
+    val dynamicImport = objects.listProperty(String::class.java)
 
     /**
      * name of the configuration to use for unpacking

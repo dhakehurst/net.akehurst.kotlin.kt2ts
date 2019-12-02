@@ -23,6 +23,7 @@ import org.gradle.api.plugins.BasePlugin
 import org.jetbrains.kotlin.gradle.dsl.KotlinMultiplatformExtension
 import org.jetbrains.kotlin.gradle.plugin.KotlinPlatformType
 import org.jetbrains.kotlin.gradle.plugin.mpp.KotlinUsages
+import org.jetbrains.kotlin.gradle.targets.js.nodejs.NodeJsRootPlugin
 import org.jetbrains.kotlin.gradle.targets.js.nodejs.NodeJsSetupTask
 import org.jetbrains.kotlin.gradle.targets.js.yarn.YarnSetupTask
 import org.jetbrains.kotlin.gradle.targets.js.yarn.YarnSimple
@@ -43,7 +44,9 @@ class GeneratorPlugin : Plugin<ProjectInternal> {
         project.gradle.projectsEvaluated {
             if (ext.ngSrcDirectory.isPresent) {
                 val ngSrcDir = project.file(ext.ngSrcDirectory.get())
-                project.tasks.create(NodeJsSetupTask.NAME, NodeJsSetupTask::class.java) { it.group = "nodejs" }
+                project.tasks.create(NodeJsSetupTask.NAME, NodeJsSetupTask::class.java) {
+                    it.group = "nodejs"
+                }
                 project.tasks.create(YarnSetupTask.NAME, YarnSetupTask::class.java) {
                     it.group = "nodejs"
                     if (it.destination.exists()) {
@@ -81,9 +84,38 @@ class GeneratorPlugin : Plugin<ProjectInternal> {
                 }
 
                 project.tasks.getByName("jsProcessResources").dependsOn("ng_build")
+
+                if (ext.dynamicImport.isPresent && ext.dynamicImport.get().isNotEmpty()) {
+                    project.tasks.create("generate_function_for_dynamic_require") {
+                        it.group = "generate"
+                        it.dependsOn(UnpackJsModulesTask.NAME)
+                        it.doLast {
+                            val options = ext.dynamicImport.get().map { gav ->
+                                val split = gav.split(':')
+                                val group = split[0]
+                                val name = split[1]
+                                "case '$group:$name': return require('$group-$name')"
+                            }.joinToString("\n")
+                            val outFile = ext.nodeModulesDirectory.get().dir("net.akehurst.kotlinx-kotlinx-reflect").file("generatedRequire.js").asFile
+                            outFile.printWriter().use { out ->
+                                val js = """
+                                    "use strict";
+                                    
+                                    function generatedRequire(moduleName) {
+                                        switch(moduleName) {
+                                            $options
+                                        }
+                                    }
+                                    
+                                    module.exports = generatedRequire;
+                                """.trimIndent()
+                                out.println(js)
+                            }
+                        }
+                    }
+                    project.tasks.getByName("ng_build").dependsOn("generate_function_for_dynamic_require")
+                }
             }
-
-
             ext.generateThirdPartyModules.forEach { cfg ->
                 //TODO: '${cfg.moduleName.get()}' might not be unque!
                 project.tasks.create("generateDeclarationsFor_${cfg.moduleName.get()}", GenerateDeclarationsTask::class.java) { tsk ->

@@ -9,9 +9,9 @@ plugins {
 
 dependencies {
     implementation(gradleApi())
-    //implementation(localGroovy())
+    implementation(localGroovy())
 
-    implementation("org.jetbrains.kotlin:kotlin-gradle-plugin:1.3.60")
+    implementation("org.jetbrains.kotlin:kotlin-gradle-plugin:1.3.61")
 
     //implementation("com.google.code.gson:gson:2.8.6")
     implementation("io.github.classgraph:classgraph:4.8.47")

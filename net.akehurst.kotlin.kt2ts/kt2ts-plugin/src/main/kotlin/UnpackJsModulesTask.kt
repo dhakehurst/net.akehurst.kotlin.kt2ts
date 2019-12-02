@@ -17,7 +17,9 @@
 package net.akehurst.kotlin.kt2ts.plugin.gradle
 
 import org.gradle.api.DefaultTask
-import org.gradle.api.tasks.*
+import org.gradle.api.tasks.Input
+import org.gradle.api.tasks.Optional
+import org.gradle.api.tasks.TaskAction
 import org.slf4j.LoggerFactory
 
 open class UnpackJsModulesTask : DefaultTask() {
@@ -74,7 +76,14 @@ open class UnpackJsModulesTask : DefaultTask() {
                 "io.ktor:ktor-utils" to "ktor-ktor-utils"
         ))
     }
+/*
+    private fun jsModuleName(jsonFile:File?) {
+        val packageJson = jsonFile?.reader()?.use {
+            Gson().fromJson(it, PackageJson::class.java)
+        } ?: PackageJson(dependency.moduleName, dependency.moduleVersion)
 
+    }
+*/
     @TaskAction
     internal fun exec() {
         val cnfName = unpackConfigurationName.get()
@@ -102,10 +111,10 @@ open class UnpackJsModulesTask : DefaultTask() {
                 if (packageJsonFile.exists()) {
                     //do nothing
                 } else {
-                    val moduleName = tgtName
+                    val moduleId = tgtName
                     val moduleVersion = dep.moduleVersion.id.version
                     val mainFileName = "$tgtName.js"
-                    GeneratePackageJsonTask.readOrCreatePackageJson(packageJsonFile, moduleName, moduleVersion, mainFileName)
+                    GeneratePackageJsonTask.readOrCreatePackageJson(packageJsonFile, moduleId, moduleVersion, mainFileName)
                 }
             }
         }

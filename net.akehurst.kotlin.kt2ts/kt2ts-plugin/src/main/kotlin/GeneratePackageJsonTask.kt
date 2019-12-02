@@ -33,7 +33,7 @@ open class GeneratePackageJsonTask : DefaultTask() {
         val NAME = "generatePackageJsonWithTypes"
         private val LOGGER = LoggerFactory.getLogger(GeneratePackageJsonTask::class.java)
 
-        fun readOrCreatePackageJson(file: File, _moduleName: String, _moduleVersion: String, mainFileName: String): JsonObject {
+        fun readOrCreatePackageJson(file: File, jsModuleName: String, _moduleVersion: String, mainFileName: String): JsonObject {
             val json = Json(JsonConfiguration.Stable)
             return if (file.exists()) {
                 json.parseJson(file.readText()).jsonObject
@@ -42,7 +42,7 @@ open class GeneratePackageJsonTask : DefaultTask() {
                 file.printWriter().use { out ->
                     out.println("""
                         {
-                            "name": "${_moduleName}",
+                            "name": "${jsModuleName}",
                             "version": "${_moduleVersion}",
                             "main": "./${mainFileName}"
                         }
@@ -96,18 +96,19 @@ open class GeneratePackageJsonTask : DefaultTask() {
         val _moduleGroup = moduleGroup.get()
         val _moduleName = moduleName.get()
         val _moduleVersion = moduleVersion.get()
+
+        val jsModuleId = if (moduleName.get().endsWith("-js")) {
+            "${moduleGroup.get()}-${moduleName.get().substringBeforeLast("-js")}"
+        } else {
+            "${moduleGroup.get()}-${moduleName.get()}"
+        }
         val _mainFileName = if (mainFileName.isPresent) {
             mainFileName.get()
         } else {
-            val defaultMainFileName = if (moduleName.get().endsWith("-js")) {
-                "${moduleGroup.get()}-${moduleName.get().substringBeforeLast("-js")}.js"
-            } else {
-                "${moduleGroup.get()}-${moduleName.get()}.js"
-            }
-            defaultMainFileName
+            "$jsModuleId.js"
         }
         LOGGER.info("Creating new file $_packageJsonFile")
-        val json = readOrCreatePackageJson(_packageJsonFile, _moduleName, _moduleVersion, _mainFileName)
+        val json = readOrCreatePackageJson(_packageJsonFile, jsModuleId, _moduleVersion, _mainFileName)
         val mutable = mutableMapOf<String, JsonElement>()
         mutable.putAll(json)
         mutable["types"] = JsonLiteral("./${_moduleGroup}-${_moduleName}.d.ts")
