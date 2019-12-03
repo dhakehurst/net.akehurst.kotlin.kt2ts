@@ -5,9 +5,10 @@ Kotlin is great. However, if you want to integrate it into an angular applicatio
 
 This plugin is intended for use in a kotlin multiplatform development. It uses JVM reflection over the kotlin-JVM module to generate the .d.ts file that is intended for use with the kotlin-js module.
 
-The plugin addresses two use cases:
+The plugin addresses use cases such as:
 1. generating .d.ts file for your own kotlin module
 2. generating .d.ts file for a third-party module
+3. building an angular application and integrating kotlin generated modules.
 
 
 ## Add the plugin
@@ -23,13 +24,8 @@ plugins {
 ```
 // configure the kt2ts plugin
 kt2ts {
-    // name of the jvm configuration for this module (locally build classes) [default 'jvm']
-    jvmTargetName.set("jvm8")
-    
-    // list of qualified class names to generate declarations for
-    // '*' means all classes in the package
     classPatterns.set(listOf(
-            "net.akehurst.kotlin.example.addressbook.information.*"
+            "com.example.my.module.common.*"
     ))
 }
 ```
