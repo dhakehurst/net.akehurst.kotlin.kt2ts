@@ -113,10 +113,13 @@ open class GenerateDeclarationsTask : DefaultTask() {
     val localOnly = project.objects.property(Boolean::class.java)
 
     @get:Input
-    val moduleOnly = project.objects.listProperty(String::class.java)
+    val includeOnly = project.objects.listProperty(String::class.java)
 
     @get:Input
-    val localJvmName = project.objects.property(String::class.java)
+    val jvmTargetName = project.objects.property(String::class.java)
+
+    @get:Input
+    val jsTargetName = project.objects.property(String::class.java)
 
     @get:OutputDirectory
     val outputDirectory = project.objects.directoryProperty()
@@ -156,36 +159,12 @@ open class GenerateDeclarationsTask : DefaultTask() {
     }
 
     private val jsConfiguration by lazy {
-        val c = commonConfiguration.copy()
-        c.incoming.dependencyConstraints.forEach {
-            it.attributes {
-                it.attribute(KotlinPlatformType.attribute, KotlinPlatformType.js)
-                it.attribute(Usage.USAGE_ATTRIBUTE, project.objects.named(Usage::class.java, KotlinUsages.KOTLIN_RUNTIME))
-            }
-        }
-        c
+        val cfgName = "${this.jsTargetName.get()}RuntimeClasspath"
+        project.configurations.findByName(cfgName) ?: throw RuntimeException("cannot find configuration $cfgName")
     }
 
     private val jvmConfiguration:Configuration by lazy {
-        /*
-        val c = project.configurations.create("kt2ts_jvmRuntimeConfiguration") {
-            it.attributes{
-                it.attribute(KotlinPlatformType.attribute, KotlinPlatformType.jvm)
-                it.attribute(Usage.USAGE_ATTRIBUTE, project.objects.named(Usage::class.java, KotlinUsages.KOTLIN_RUNTIME))
-            }
-        }
-        commonConfiguration.dependencies.forEach {
-            //hack because kotlinx-coroutines is not well behaved
-            if (it.name=="kotlinx-coroutines-core-common") {
-                val ver = it.version
-                c.dependencies.add(project.dependencies.create("org.jetbrains.kotlinx:kotlinx-coroutines-core:$ver"))
-            } else {
-                c.dependencies.add(it)
-            }
-        }
-        c
-         */
-        val cfgName = "${this.localJvmName.get()}RuntimeClasspath"
+        val cfgName = "${this.jvmTargetName.get()}RuntimeClasspath"
         project.configurations.findByName(cfgName) ?: throw RuntimeException("cannot find configuration $cfgName")
     }
 
@@ -197,7 +176,8 @@ open class GenerateDeclarationsTask : DefaultTask() {
         this.moduleName.convention(project.name)
         this.overwrite.convention(true)
         this.localOnly.convention(true)
-        this.localJvmName.convention("jvm")
+        this.jvmTargetName.convention("jvm")
+        this.jsTargetName.convention("js")
         val outDir = project.layout.buildDirectory.dir("tmp/jsJar/ts")
         this.outputDirectory.convention(outDir)
         this.declarationsFile.convention(outDir.get().file("${project.group}-${project.name}.d.ts"))
@@ -222,6 +202,7 @@ open class GenerateDeclarationsTask : DefaultTask() {
                 "java.lang.Exception" to "Error",
                 "java.lang.RuntimeException" to "Error"
         ))
+        //TODO: find a way to traverse the gradle configurations and auto generate this map!
         this.moduleNameMap.convention(mapOf(
                 "org.jetbrains.kotlinx:kotlinx-coroutines-core-js" to "kotlinx-coroutines-core",
                 "org.jetbrains.kotlinx:kotlinx-coroutines-core" to "kotlinx-coroutines-core",
@@ -558,7 +539,7 @@ open class GenerateDeclarationsTask : DefaultTask() {
 
     private fun createClassLoaderForAll(): URLClassLoader {
         val urls = mutableListOf<URL>()
-        val localBuild = project.buildDir.resolve("classes/kotlin/${localJvmName.get()}/main")//project.tasks.getByName("jvm8MainClasses").outputs.files
+        val localBuild = project.buildDir.resolve("classes/kotlin/${jvmTargetName.get()}/main")//project.tasks.getByName("jvm8MainClasses").outputs.files
         val localUrl = localBuild.absoluteFile.toURI().toURL() //URL("file://"+localBuild.absoluteFile+"/")
         urls.add(localUrl)
 //        val configurationName = modulesConfigurationName.get()
@@ -579,8 +560,8 @@ open class GenerateDeclarationsTask : DefaultTask() {
 
     private fun createClassLoaderForDecls(): URLClassLoader {
         val urls = mutableListOf<URL>()
-        val forModules = moduleOnly.get()
-        val localBuild = project.buildDir.resolve("classes/kotlin/${localJvmName.get()}/main")//project.tasks.getByName("jvm8MainClasses").outputs.files
+        val forModules = includeOnly.get()
+        val localBuild = project.buildDir.resolve("classes/kotlin/${jvmTargetName.get()}/main")//project.tasks.getByName("jvm8MainClasses").outputs.files
         val localUrl = localBuild.absoluteFile.toURI().toURL() //URL("file://"+localBuild.absoluteFile+"/")
         urls.add(localUrl)
         if (localOnly.get().not()) {
@@ -588,7 +569,8 @@ open class GenerateDeclarationsTask : DefaultTask() {
 //            val c = this.project.configurations.findByName(configurationName) ?: throw RuntimeException("Cannot find $configurationName configuration")
 //            c.resolvedConfiguration.resolvedArtifacts.forEach { dep ->
             jvmConfiguration.resolvedConfiguration.resolvedArtifacts.forEach { dep ->
-                if (forModules.isEmpty() || forModules.contains(dep.name)) {
+                val id = "${dep.moduleVersion.id.group}:${dep.name}"
+                if (forModules.isEmpty() || forModules.contains(id)) {
                     val file = dep.file
                     try {
                         LOGGER.info("For declarations adding url for $file")
@@ -632,7 +614,7 @@ open class GenerateDeclarationsTask : DefaultTask() {
         this.classModuleMap[Double::class.qualifiedName!!] = KOTLIN_STDLIB_MODULE
         //TODO: other built in types ! i.e. CharArray etc
 
-        val localBuild = project.buildDir.resolve("classes/kotlin/${localJvmName.get()}/main")
+        val localBuild = project.buildDir.resolve("classes/kotlin/${jvmTargetName.get()}/main")
         val localUrl = localBuild.absoluteFile.toURI().toURL()
 
         fetchClassesFor(localUrl).forEach {
@@ -644,7 +626,7 @@ open class GenerateDeclarationsTask : DefaultTask() {
         //c.resolvedConfiguration.resolvedArtifacts.forEach { dep ->
         jvmConfiguration.resolvedConfiguration.resolvedArtifacts.forEach { dep ->
             val dn = when {
-                dep.name.endsWith(localJvmName.get()) -> dep.name.substringBeforeLast("-")
+                dep.name.endsWith(jvmTargetName.get()) -> dep.name.substringBeforeLast("-")
                 else -> dep.name
             }
             //js modules often use a wierd module name, so we need to use a module name mapping sometimes,

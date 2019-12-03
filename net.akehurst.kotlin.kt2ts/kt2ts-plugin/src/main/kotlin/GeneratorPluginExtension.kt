@@ -25,8 +25,6 @@ open class GeneratorPluginExtension(project: Project, objects: ObjectFactory) {
         val NAME = "kt2ts"
     }
 
-    val createAngularTasks = objects.property(Boolean::class.java)
-
     /**
      * directory where the angular code is perhaps "${project.projectDir}/src/angular"
      * when this value is set, the angular build tasks are created
@@ -66,11 +64,6 @@ open class GeneratorPluginExtension(project: Project, objects: ObjectFactory) {
     //--- configuration for generating tsd on self
 
     /**
-     * name of the source set to add the .d.ts and package.json files to [jsMain]
-     */
-    val jsSourceSetName = objects.property(String::class.java)
-
-    /**
      * name of the directory into which the files are generated [{buildDir}/tmp/jsJar/ts]
      */
     val tsdOutputDirectory = objects.directoryProperty()
@@ -91,9 +84,14 @@ open class GeneratorPluginExtension(project: Project, objects: ObjectFactory) {
     val includeOnly = objects.listProperty(String::class.java)
 
     /**
-     * name of the jvm configuration for this module (locally build classes) [default 'jvm']
+     * name of the kotlin jvm target for this module [default 'jvm']
      */
-    val localJvmName = objects.property(String::class.java) //"commonMainImplementation"
+    val jvmTargetName = objects.property(String::class.java)
+
+    /**
+     * name of the kotlin js target for this module [default 'jvm']
+     */
+    val jsTargetName = objects.property(String::class.java)
 
     val declarationsFile = objects.fileProperty()
     val classPatterns = objects.listProperty(String::class.java)
@@ -109,9 +107,6 @@ open class GeneratorPluginExtension(project: Project, objects: ObjectFactory) {
 
     init {
         // angular build configuration
-        this.createAngularTasks.convention(true)
-        //this.ngSrcDirectory.convention("${project.projectDir}/src/angular")
-        this.jsSourceSetName.convention("jsMain")
         this.ngConfigurationName.convention("ngKotlin")
         this.ngOutDirectory.convention( project.layout.buildDirectory.dir("angular") )
         this.nodeModulesDirectory.convention(this.ngSrcDirectory.map { it.dir("node_modules") })
@@ -121,7 +116,8 @@ open class GeneratorPluginExtension(project: Project, objects: ObjectFactory) {
         this.tsdOutputDirectory.convention(tsOutDir)
         this.overwrite.convention(true)
         this.localOnly.convention(true)
-        this.localJvmName.convention("jvm")
+        this.jvmTargetName.convention("jvm")
+        this.jsTargetName.convention("js")
 
         this.declarationsFile.convention(tsdOutputDirectory.file("${project.group}-${project.name}.d.ts"))
         this.excludeModules.convention(listOf(

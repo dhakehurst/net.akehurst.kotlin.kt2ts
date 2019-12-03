@@ -7,8 +7,10 @@ export declare namespace kotlin {
     }
 
     interface Long {
-        low: number
-        high: number
+        low: number;
+        high: number;
+
+        toNumber() : number;
     }
 
     interface Function1<P1, R> {
@@ -41,6 +43,8 @@ export declare namespace kotlin.collections {
         clear();
 
         remove(element: E);
+
+        isEmpty(): boolean;
     }
 
     interface List<E> extends Collection<E> {
@@ -64,6 +68,8 @@ export declare namespace kotlin.collections {
         clear();
 
         remove(key: K);
+
+        isEmpty(): boolean;
     }
 }
 

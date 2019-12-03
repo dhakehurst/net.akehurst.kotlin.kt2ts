@@ -23,7 +23,6 @@ import org.gradle.api.plugins.BasePlugin
 import org.jetbrains.kotlin.gradle.dsl.KotlinMultiplatformExtension
 import org.jetbrains.kotlin.gradle.plugin.KotlinPlatformType
 import org.jetbrains.kotlin.gradle.plugin.mpp.KotlinUsages
-import org.jetbrains.kotlin.gradle.targets.js.nodejs.NodeJsRootPlugin
 import org.jetbrains.kotlin.gradle.targets.js.nodejs.NodeJsSetupTask
 import org.jetbrains.kotlin.gradle.targets.js.yarn.YarnSetupTask
 import org.jetbrains.kotlin.gradle.targets.js.yarn.YarnSimple
@@ -56,15 +55,15 @@ class GeneratorPlugin : Plugin<ProjectInternal> {
                     }
                 }
                 // use yarn to install the node_modules required by the angular code
-                project.tasks.create("yarn_install") {
+                project.tasks.create("yarnInstall") {
                     it.group = "angular"
                     it.dependsOn(NodeJsSetupTask.NAME, YarnSetupTask.NAME)
                     it.doLast {
-                        YarnSimple.yarnExec(project.rootProject, ngSrcDir, "yarn_install", "install", "--cwd", "--no-bin-links")
+                        YarnSimple.yarnExec(project.rootProject, ngSrcDir, "yarn install", "install", "--cwd", "--no-bin-links")
                     }
                 }
                 project.tasks.create(UnpackJsModulesTask.NAME, UnpackJsModulesTask::class.java) { tsk ->
-                    tsk.dependsOn(ngKotlinConfig, "yarn_install")
+                    tsk.dependsOn(ngKotlinConfig, "yarnInstall")
                     tsk.moduleNameMap.set(ext.moduleNameMap)
                     tsk.nodeModulesDirectory.set(ext.nodeModulesDirectory)
                     tsk.unpackConfigurationName.set(ext.ngConfigurationName)
@@ -73,55 +72,35 @@ class GeneratorPlugin : Plugin<ProjectInternal> {
                 project.tasks.create(AddKotlinStdlibDeclarationsTask.NAME, AddKotlinStdlibDeclarationsTask::class.java) { tsk ->
                     tsk.outputDirectory.set(ext.kotlinStdlibJsDirectory)
                 }
-                project.tasks.create("ng_build") {
+                project.tasks.create("ngBuild") {
                     it.group = "angular"
-                    it.dependsOn("unpack_kotlin_js")
+                    it.dependsOn(UnpackJsModulesTask.NAME)
                     it.dependsOn("addKotlinStdlibDeclarations")
                     it.doLast {
                         val additionalArgs = ext.ngBuildAdditionalArguments.get().toTypedArray()
-                        YarnSimple.yarnExec(project.rootProject, project.file(ext.ngSrcDirectory.get()), "ng_build", "run", "ng", "build", "--outputPath=${ext.ngOutDirectory.get()}/dist", *additionalArgs)
+                        YarnSimple.yarnExec(project.rootProject, project.file(ext.ngSrcDirectory.get()), "ng build", "run", "ng", "build", "--outputPath=${ext.ngOutDirectory.get()}/dist", *additionalArgs)
                     }
                 }
 
-                project.tasks.getByName("jsProcessResources").dependsOn("ng_build")
+                project.tasks.getByName("jsProcessResources").dependsOn("ngBuild")
 
                 if (ext.dynamicImport.isPresent && ext.dynamicImport.get().isNotEmpty()) {
-                    project.tasks.create("generate_function_for_dynamic_require") {
-                        it.group = "generate"
-                        it.dependsOn(UnpackJsModulesTask.NAME)
-                        it.doLast {
-                            val options = ext.dynamicImport.get().map { gav ->
-                                val split = gav.split(':')
-                                val group = split[0]
-                                val name = split[1]
-                                "case '$group:$name': return require('$group-$name')"
-                            }.joinToString("\n")
-                            val outFile = ext.nodeModulesDirectory.get().dir("net.akehurst.kotlinx-kotlinx-reflect").file("generatedRequire.js").asFile
-                            outFile.printWriter().use { out ->
-                                val js = """
-                                    "use strict";
-                                    
-                                    function generatedRequire(moduleName) {
-                                        switch(moduleName) {
-                                            $options
-                                        }
-                                    }
-                                    
-                                    module.exports = generatedRequire;
-                                """.trimIndent()
-                                out.println(js)
-                            }
-                        }
+                    project.tasks.create(GenerateDynamicRequire.NAME, GenerateDynamicRequire::class.java) { tsk ->
+                        tsk.group = "generate"
+                        tsk.dependsOn(UnpackJsModulesTask.NAME)
+                        tsk.nodeModulesDirectory.set(ext.nodeModulesDirectory)
+                        tsk.dynamicImport.set(ext.dynamicImport)
                     }
-                    project.tasks.getByName("ng_build").dependsOn("generate_function_for_dynamic_require")
+                    project.tasks.getByName("ngBuild").dependsOn("generateFunctionForDynamicRequire")
                 }
             }
             ext.generateThirdPartyModules.forEach { cfg ->
                 //TODO: '${cfg.moduleName.get()}' might not be unque!
                 project.tasks.create("generateDeclarationsFor_${cfg.moduleName.get()}", GenerateDeclarationsTask::class.java) { tsk ->
                     tsk.group = "generate"
-                    tsk.dependsOn("unpack_kotlin_js")
-                    tsk.localJvmName.set(ext.localJvmName)
+                    tsk.dependsOn(UnpackJsModulesTask.NAME)
+                    tsk.jvmTargetName.set(ext.jvmTargetName)
+                    tsk.jsTargetName.set(ext.jsTargetName)
                     tsk.moduleGroup.set(cfg.moduleGroup)
                     tsk.moduleName.set(cfg.moduleName)
                     tsk.classPatterns.set(cfg.classPatterns)
@@ -146,20 +125,21 @@ class GeneratorPlugin : Plugin<ProjectInternal> {
             }
         }
         // generate own .d.ts
-        project.extensions.findByType(KotlinMultiplatformExtension::class.java)?.sourceSets?.findByName(ext.jsSourceSetName.get())?.resources?.srcDir(ext.tsdOutputDirectory)
+        project.extensions.findByType(KotlinMultiplatformExtension::class.java)?.sourceSets?.findByName(ext.jsTargetName.map { "${it}Main" }.get())?.resources?.srcDir(ext.tsdOutputDirectory)
 
         project.tasks.create(GeneratePackageJsonTask.NAME, GeneratePackageJsonTask::class.java) { tsk ->
             tsk.packageJsonDir.set(ext.tsdOutputDirectory)
         }
         project.tasks.create(GenerateDeclarationsTask.NAME, GenerateDeclarationsTask::class.java) { gt ->
             //TODO: how to set dependsOn to "${ext.jvmName}MainClasses" ?
-            val jvmMainClasses = ext.localJvmName.map { it + "MainClasses" }
+            val jvmMainClasses = ext.jvmTargetName.map { "${it}MainClasses" }
             gt.dependsOn(GeneratePackageJsonTask.NAME, jvmMainClasses)
             gt.overwrite.set(ext.overwrite)
             gt.localOnly.set(ext.localOnly)
             gt.moduleOnly.set(ext.includeOnly)
             gt.declarationsFile.set(ext.declarationsFile)
-            gt.localJvmName.set(ext.localJvmName)
+            gt.jvmTargetName.set(ext.jvmTargetName)
+            gt.jsTargetName.set(ext.jsTargetName)
             gt.classPatterns.set(ext.classPatterns)
             gt.typeMapping.set(ext.typeMapping)
             gt.outputDirectory.set(ext.tsdOutputDirectory)

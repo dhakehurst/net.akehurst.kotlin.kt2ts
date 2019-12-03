@@ -25,7 +25,7 @@ import org.slf4j.LoggerFactory
 open class UnpackJsModulesTask : DefaultTask() {
 
     companion object {
-        val NAME = "unpack_kotlin_js"
+        val NAME = "unpackKotlinJs"
         private val LOGGER = LoggerFactory.getLogger(UnpackJsModulesTask::class.java)
     }
 
