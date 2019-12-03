@@ -106,7 +106,7 @@ class GeneratorPlugin : Plugin<ProjectInternal> {
                     tsk.classPatterns.set(cfg.classPatterns)
                     //overwrite.set(false)
                     tsk.localOnly.set(false)
-                    tsk.moduleOnly.set(cfg.includeOnly)
+                    tsk.includeOnly.set(cfg.includeOnly)
                     //modulesConfigurationName.set("jvm8RuntimeClasspath")
                     //tsk.declarationsFile.set(file("${ngSrcDir}/node_modules/${tgtName}/${dep.moduleVersion.id.group}-${dn}-js.d.ts"))
                     tsk.declarationsFile.set(ext.nodeModulesDirectory.flatMap {
@@ -136,7 +136,7 @@ class GeneratorPlugin : Plugin<ProjectInternal> {
             gt.dependsOn(GeneratePackageJsonTask.NAME, jvmMainClasses)
             gt.overwrite.set(ext.overwrite)
             gt.localOnly.set(ext.localOnly)
-            gt.moduleOnly.set(ext.includeOnly)
+            gt.includeOnly.set(ext.includeOnly)
             gt.declarationsFile.set(ext.declarationsFile)
             gt.jvmTargetName.set(ext.jvmTargetName)
             gt.jsTargetName.set(ext.jsTargetName)
