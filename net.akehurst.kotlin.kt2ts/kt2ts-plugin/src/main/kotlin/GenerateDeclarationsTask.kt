@@ -427,7 +427,7 @@ open class GenerateDeclarationsTask : DefaultTask() {
             "<$tps>"
         }
         val parameters = method.valueParameters.mapIndexed { index: Int, it: KParameter -> generateParameter(it, index, owningTypePackage) }.joinToString(", ")
-        return "constructor$generic($parameters);"
+        return "constructor($parameters);"
     }
 
     private fun generateProperty(property: KProperty<*>, owningTypePackage: Namespace): String {
