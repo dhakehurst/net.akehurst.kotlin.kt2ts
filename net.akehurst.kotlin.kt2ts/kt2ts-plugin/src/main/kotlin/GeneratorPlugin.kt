@@ -123,33 +123,35 @@ class GeneratorPlugin : Plugin<ProjectInternal> {
                     tsk.mainFileName.set(cfg.mainFileName)
                 }
             }
-        }
-        // generate own .d.ts
-        project.extensions.findByType(KotlinMultiplatformExtension::class.java)?.sourceSets?.findByName(ext.jsTargetName.map { "${it}Main" }.get())?.resources?.srcDir(ext.tsdOutputDirectory)
 
-        project.tasks.create(GeneratePackageJsonTask.NAME, GeneratePackageJsonTask::class.java) { tsk ->
-            tsk.packageJsonDir.set(ext.tsdOutputDirectory)
-        }
-        project.tasks.create(GenerateDeclarationsTask.NAME, GenerateDeclarationsTask::class.java) { gt ->
-            //TODO: how to set dependsOn to "${ext.jvmName}MainClasses" ?
-            val jvmMainClasses = ext.jvmTargetName.map { "${it}MainClasses" }
-            gt.dependsOn(GeneratePackageJsonTask.NAME, jvmMainClasses)
-            gt.overwrite.set(ext.overwrite)
-            gt.localOnly.set(ext.localOnly)
-            gt.includeOnly.set(ext.includeOnly)
-            gt.declarationsFile.set(ext.declarationsFile)
-            gt.jvmTargetName.set(ext.jvmTargetName)
-            gt.jsTargetName.set(ext.jsTargetName)
-            gt.classPatterns.set(ext.classPatterns)
-            gt.typeMapping.set(ext.typeMapping)
-            gt.outputDirectory.set(ext.tsdOutputDirectory)
-            gt.declarationsFile.set(ext.declarationsFile)
-            //gt.dependencies = ext.dependencies
-            gt.moduleNameMap.set(ext.moduleNameMap)
-        }
+            if (ext.classPatterns.isPresent && ext.classPatterns.get().isNotEmpty()) {
+                // generate own .d.ts
+                project.extensions.findByType(KotlinMultiplatformExtension::class.java)?.sourceSets?.findByName(ext.jsTargetName.map { "${it}Main" }.get())?.resources?.srcDir(ext.tsdOutputDirectory)
 
+                project.tasks.create(GeneratePackageJsonTask.NAME, GeneratePackageJsonTask::class.java) { tsk ->
+                    tsk.packageJsonDir.set(ext.tsdOutputDirectory)
+                }
+                project.tasks.create(GenerateDeclarationsTask.NAME, GenerateDeclarationsTask::class.java) { gt ->
+                    //TODO: how to set dependsOn to "${ext.jvmName}MainClasses" ?
+                    val jvmMainClasses = ext.jvmTargetName.map { "${it}MainClasses" }
+                    gt.dependsOn(GeneratePackageJsonTask.NAME, jvmMainClasses)
+                    gt.overwrite.set(ext.overwrite)
+                    gt.localOnly.set(ext.localOnly)
+                    gt.includeOnly.set(ext.includeOnly)
+                    gt.declarationsFile.set(ext.declarationsFile)
+                    gt.jvmTargetName.set(ext.jvmTargetName)
+                    gt.jsTargetName.set(ext.jsTargetName)
+                    gt.classPatterns.set(ext.classPatterns)
+                    gt.typeMapping.set(ext.typeMapping)
+                    gt.outputDirectory.set(ext.tsdOutputDirectory)
+                    gt.declarationsFile.set(ext.declarationsFile)
+                    //gt.dependencies = ext.dependencies
+                    gt.moduleNameMap.set(ext.moduleNameMap)
+                }
 
-        project.tasks.getByName("jsJar").dependsOn(GenerateDeclarationsTask.NAME)
+                project.tasks.getByName("jsJar").dependsOn(GenerateDeclarationsTask.NAME)
+            }
+        }
     }
 
 }

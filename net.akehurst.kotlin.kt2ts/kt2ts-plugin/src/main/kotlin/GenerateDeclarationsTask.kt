@@ -377,6 +377,7 @@ open class GenerateDeclarationsTask : DefaultTask() {
             val module = this.classModuleMap[kclass.qualifiedName!!] ?: Module.fetchOrCreate("unknown", kclass.qualifiedName!!)
             val namespace = module.fetchOrCreateNamespace(pkgName)
             val name = kclass.simpleName!!
+            val constructors = kclass.constructors.filter { it.visibility == KVisibility.PUBLIC }.map { generateConstructor(it, namespace) }.joinToString("\n").prependIndent(INDENT)
             val properties = kclass.declaredMemberProperties.filter { it.visibility == KVisibility.PUBLIC }.map { generateProperty(it, namespace) }.joinToString("\n").prependIndent(INDENT)
             val methods = kclass.declaredMemberFunctions.filter { it.visibility == KVisibility.PUBLIC }.map { generateMethod(it, namespace) }.joinToString("\n").prependIndent(INDENT)
             val typeParams = if (kclass.typeParameters.isEmpty()) {
@@ -413,9 +414,20 @@ open class GenerateDeclarationsTask : DefaultTask() {
             }
             val extendsStr = if (extends.isEmpty()) "" else "extends ${extends.joinToString(",")}"
             val implementsStr = if (implements.isEmpty()) "" else "implements ${implements.joinToString(",")}"
-            val res = "$prefix $extendsStr $implementsStr {\n$properties\n\n$methods\n}\n$instance"
+            val res = "$prefix $extendsStr $implementsStr {\n$constructors\n$properties\n\n$methods\n}\n$instance"
             return res
         }
+    }
+
+    private fun generateConstructor(method: KFunction<*>, owningTypePackage: Namespace): String {
+        val generic = if (method.typeParameters.isEmpty()) {
+            ""
+        } else {
+            val tps = method.typeParameters.map { it.name }.joinToString(",")
+            "<$tps>"
+        }
+        val parameters = method.valueParameters.mapIndexed { index: Int, it: KParameter -> generateParameter(it, index, owningTypePackage) }.joinToString(", ")
+        return "constructor$generic($parameters);"
     }
 
     private fun generateProperty(property: KProperty<*>, owningTypePackage: Namespace): String {
