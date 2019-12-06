@@ -15,7 +15,7 @@ The plugin addresses use cases such as:
 
 ```
 plugins {
-    id("net.akehurst.kotlin.kt2ts") version("1.3.0")
+    id("net.akehurst.kotlin.kt2ts") version("$version")
 }
 ```
 
