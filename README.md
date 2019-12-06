@@ -1,5 +1,5 @@
 [![Build Status](https://travis-ci.com/dhakehurst/net.akehurst.kotlin.kt2ts.svg?branch=master)](https://travis-ci.com/dhakehurst/net.akehurst.kotlin.kt2ts)
-
+![Bintray](https://img.shields.io/bintray/v/dhakehurst/maven/net.akehurst.kotlin.kt2ts.svg)
 
 # net.akehurst.kotlin.kt2ts
 Typescript definition file generator for kotlin (js) classes
