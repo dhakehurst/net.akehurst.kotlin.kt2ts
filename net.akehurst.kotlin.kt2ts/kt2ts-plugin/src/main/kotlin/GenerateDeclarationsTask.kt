@@ -20,12 +20,7 @@ import io.github.classgraph.ClassGraph
 import io.github.classgraph.ClassInfo
 import org.gradle.api.DefaultTask
 import org.gradle.api.artifacts.Configuration
-import org.gradle.api.artifacts.ExternalDependency
-import org.gradle.api.artifacts.ModuleDependency
-import org.gradle.api.attributes.Usage
 import org.gradle.api.tasks.*
-import org.jetbrains.kotlin.gradle.plugin.KotlinPlatformType
-import org.jetbrains.kotlin.gradle.plugin.mpp.KotlinUsages
 import org.slf4j.LoggerFactory
 import java.io.File
 import java.io.FileWriter
@@ -612,6 +607,7 @@ open class GenerateDeclarationsTask : DefaultTask() {
         this.classModuleMap[List::class.qualifiedName!!] = KOTLIN_STDLIB_MODULE
         this.classModuleMap[Set::class.qualifiedName!!] = KOTLIN_STDLIB_MODULE
         this.classModuleMap[Map::class.qualifiedName!!] = KOTLIN_STDLIB_MODULE
+        this.classModuleMap[Map.Entry::class.qualifiedName!!] = KOTLIN_STDLIB_MODULE
         this.classModuleMap[Comparable::class.qualifiedName!!] = KOTLIN_STDLIB_MODULE
         this.classModuleMap[String::class.qualifiedName!!] = KOTLIN_STDLIB_MODULE
         this.classModuleMap[CharSequence::class.qualifiedName!!] = KOTLIN_STDLIB_MODULE

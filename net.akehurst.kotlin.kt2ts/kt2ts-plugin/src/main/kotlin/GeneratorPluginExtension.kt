@@ -26,22 +26,22 @@ open class GeneratorPluginExtension(project: Project, objects: ObjectFactory) {
     }
 
     /**
-     * directory where the angular code is perhaps "${project.projectDir}/src/angular"
-     * when this value is set, the angular build tasks are created
+     * directory where the Node.js code is perhaps "${project.projectDir}/src/node"
+     * when this value is set, the node build tasks are created
      */
-    val ngSrcDirectory = objects.directoryProperty()
+    val nodeSrcDirectory = objects.directoryProperty()
 
-    val ngBuildAdditionalArguments = objects.listProperty(String::class.java)
+    val nodeBuildCommand = objects.listProperty(String::class.java)
 
     /**
-     * directory where build angular code is output default [${project.buildDir}/angular]
+     * directory where built code is output default [${project.buildDir}/node]
      */
-    val ngOutDirectory = objects.directoryProperty()
+    val nodeOutDirectory = objects.directoryProperty()
 
     /**
      * name of the configuration to use for finding depended modules [default 'jvmRuntimeClasspath']
      */
-    val ngConfigurationName = objects.property(String::class.java)
+    val nodeConfigurationName = objects.property(String::class.java)
 
     val nodeModulesDirectory = objects.directoryProperty()
 
@@ -106,11 +106,12 @@ open class GeneratorPluginExtension(project: Project, objects: ObjectFactory) {
 
 
     init {
-        // angular build configuration
-        this.ngConfigurationName.convention("ngKotlin")
-        this.ngOutDirectory.convention( project.layout.buildDirectory.dir("angular") )
-        this.nodeModulesDirectory.convention(this.ngSrcDirectory.map { it.dir("node_modules") })
+        // node build configuration
+        this.nodeConfigurationName.convention("nodeKotlin")
+        this.nodeOutDirectory.convention( project.layout.buildDirectory.dir("node") )
+        this.nodeModulesDirectory.convention(this.nodeSrcDirectory.map { it.dir("node_modules") })
         this.kotlinStdlibJsDirectory.convention(this.nodeModulesDirectory.map { it.dir("kotlin") })
+        this.nodeBuildCommand.convention(listOf("run", "build", "--outputPath=${this.nodeOutDirectory.get()}/dist"))
 
         val tsOutDir = project.layout.buildDirectory.dir("tmp/jsJar/ts")
         this.tsdOutputDirectory.convention(tsOutDir)

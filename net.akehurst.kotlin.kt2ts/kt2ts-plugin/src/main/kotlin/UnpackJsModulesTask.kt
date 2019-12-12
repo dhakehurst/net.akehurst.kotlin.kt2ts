@@ -43,7 +43,7 @@ open class UnpackJsModulesTask : DefaultTask() {
     val excludeModules = project.objects.listProperty(String::class.java)
 
     init {
-        this.group = "angular"
+        this.group = "nodejs"
         this.description = "Unpack Kotlin JS modules"
         this.unpackConfigurationName.convention("js")
         this.excludeModules.convention(listOf(

@@ -29,11 +29,15 @@ import org.jetbrains.kotlin.gradle.targets.js.yarn.YarnSimple
 
 class GeneratorPlugin : Plugin<ProjectInternal> {
 
+    companion object {
+        val TASK_NODE_BUILD = "nodeBuild"
+    }
+
     override fun apply(project: ProjectInternal) {
         project.pluginManager.apply(BasePlugin::class.java)
         val ext = project.extensions.create<GeneratorPluginExtension>(GeneratorPluginExtension.NAME, GeneratorPluginExtension::class.java, project)
 
-        val ngKotlinConfig = project.configurations.create(ext.ngConfigurationName.get()) {
+        val nodeKotlinConfig = project.configurations.create(ext.nodeConfigurationName.get()) {
             it.attributes {
                 it.attribute(KotlinPlatformType.attribute, KotlinPlatformType.js)
                 it.attribute(Usage.USAGE_ATTRIBUTE, project.objects.named(Usage::class.java, KotlinUsages.KOTLIN_RUNTIME))
@@ -41,8 +45,8 @@ class GeneratorPlugin : Plugin<ProjectInternal> {
         }
 
         project.gradle.projectsEvaluated {
-            if (ext.ngSrcDirectory.isPresent) {
-                val ngSrcDir = project.file(ext.ngSrcDirectory.get())
+            if (ext.nodeSrcDirectory.isPresent) {
+                val nodeSrcDir = project.file(ext.nodeSrcDirectory.get())
                 project.tasks.create(NodeJsSetupTask.NAME, NodeJsSetupTask::class.java) {
                     it.group = "nodejs"
                 }
@@ -54,35 +58,35 @@ class GeneratorPlugin : Plugin<ProjectInternal> {
                         it.setup()
                     }
                 }
-                // use yarn to install the node_modules required by the angular code
+                // use yarn to install the node_modules required by the node code
                 project.tasks.create("yarnInstall") {
-                    it.group = "angular"
+                    it.group = "nodejs"
                     it.dependsOn(NodeJsSetupTask.NAME, YarnSetupTask.NAME)
                     it.doLast {
-                        YarnSimple.yarnExec(project.rootProject, ngSrcDir, "yarn install", "install", "--cwd", "--no-bin-links")
+                        YarnSimple.yarnExec(project.rootProject, nodeSrcDir, "yarn install", "install", "--cwd", "--no-bin-links")
                     }
                 }
                 project.tasks.create(UnpackJsModulesTask.NAME, UnpackJsModulesTask::class.java) { tsk ->
-                    tsk.dependsOn(ngKotlinConfig, "yarnInstall")
+                    tsk.dependsOn(nodeKotlinConfig, "yarnInstall")
                     tsk.moduleNameMap.set(ext.moduleNameMap)
                     tsk.nodeModulesDirectory.set(ext.nodeModulesDirectory)
-                    tsk.unpackConfigurationName.set(ext.ngConfigurationName)
+                    tsk.unpackConfigurationName.set(ext.nodeConfigurationName)
                     tsk.excludeModules.set(ext.excludeModules)
                 }
                 project.tasks.create(AddKotlinStdlibDeclarationsTask.NAME, AddKotlinStdlibDeclarationsTask::class.java) { tsk ->
                     tsk.outputDirectory.set(ext.kotlinStdlibJsDirectory)
                 }
-                project.tasks.create("ngBuild") {
-                    it.group = "angular"
+                project.tasks.create(TASK_NODE_BUILD) {
+                    it.group = "nodejs"
                     it.dependsOn(UnpackJsModulesTask.NAME)
                     it.dependsOn("addKotlinStdlibDeclarations")
                     it.doLast {
-                        val additionalArgs = ext.ngBuildAdditionalArguments.get().toTypedArray()
-                        YarnSimple.yarnExec(project.rootProject, project.file(ext.ngSrcDirectory.get()), "ng build", "run", "ng", "build", "--outputPath=${ext.ngOutDirectory.get()}/dist", *additionalArgs)
+                        val nodeArgs = ext.nodeBuildCommand.get().toTypedArray()
+                        YarnSimple.yarnExec(project.rootProject, project.file(ext.nodeSrcDirectory.get()), "node build command", *nodeArgs)
                     }
                 }
 
-                project.tasks.getByName("jsProcessResources").dependsOn("ngBuild")
+                project.tasks.getByName("jsProcessResources").dependsOn(TASK_NODE_BUILD)
 
                 if (ext.dynamicImport.isPresent && ext.dynamicImport.get().isNotEmpty()) {
                     project.tasks.create(GenerateDynamicRequire.NAME, GenerateDynamicRequire::class.java) { tsk ->
@@ -91,7 +95,7 @@ class GeneratorPlugin : Plugin<ProjectInternal> {
                         tsk.nodeModulesDirectory.set(ext.nodeModulesDirectory)
                         tsk.dynamicImport.set(ext.dynamicImport)
                     }
-                    project.tasks.getByName("ngBuild").dependsOn("generateFunctionForDynamicRequire")
+                    project.tasks.getByName(TASK_NODE_BUILD).dependsOn(GenerateDynamicRequire.NAME)
                 }
             }
             ext.generateThirdPartyModules.forEach { cfg ->
@@ -104,11 +108,8 @@ class GeneratorPlugin : Plugin<ProjectInternal> {
                     tsk.moduleGroup.set(cfg.moduleGroup)
                     tsk.moduleName.set(cfg.moduleName)
                     tsk.classPatterns.set(cfg.classPatterns)
-                    //overwrite.set(false)
                     tsk.localOnly.set(false)
                     tsk.includeOnly.set(cfg.includeOnly)
-                    //modulesConfigurationName.set("jvm8RuntimeClasspath")
-                    //tsk.declarationsFile.set(file("${ngSrcDir}/node_modules/${tgtName}/${dep.moduleVersion.id.group}-${dn}-js.d.ts"))
                     tsk.declarationsFile.set(ext.nodeModulesDirectory.flatMap {
                         it.dir(cfg.tgtName).map { it.file("${tsk.moduleGroup.get()}-${tsk.moduleName.get()}-js.d.ts") }
                     })

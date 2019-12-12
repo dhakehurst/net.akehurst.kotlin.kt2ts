@@ -80,11 +80,40 @@ export declare namespace kotlin.collections.Map {
     }
 }
 
+export declare namespace kotlin.coroutines {
+    interface Continuation<R> {
+    }
+    interface CoroutineContext {
+    }
+}
+
+export declare namespace kotlin.coroutines.CoroutineContext {
+    interface Element {
+    }
+}
+export declare namespace kotlin.properties {
+    interface ReadOnlyProperty<R,T> {
+    }
+    interface ReadWriteProperty<R,T> {
+    }
+}
+
+export declare namespace kotlin.reflect {
+    interface KCallable<R> {
+    }
+    interface KFunction<R> {
+    }
+    interface KProperty<R> {
+    }
+}
+
 export declare namespace kotlin.text {
     interface Regex {
     }
 }
-export declare namespace kotlin.coroutines {
-    interface Continuation<R> {
+
+export declare namespace kotlin.time {
+    interface Duration {
     }
 }
+

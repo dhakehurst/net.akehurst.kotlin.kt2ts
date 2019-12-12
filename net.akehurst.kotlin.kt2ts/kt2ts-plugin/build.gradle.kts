@@ -70,7 +70,7 @@ pluginBundle {
             // id is captured from java-gradle-plugin configuration
             displayName = "Kotlin to Typescript declarations"
             description = "Generate Typescript declarations for Kotlin modules"
-            tags = listOf("kotlin", "typescript")
+            tags = listOf("kotlin", "typescript", "kt2ts")
         }
     }
 
