@@ -1,3 +1,7 @@
+[![Build Status](https://travis-ci.com/dhakehurst/net.akehurst.kotlin.kt2ts.svg?branch=master)](https://travis-ci.com/dhakehurst/net.akehurst.kotlin.kt2ts)
+![Bintray](https://img.shields.io/bintray/v/dhakehurst/maven/net.akehurst.kotlin.kt2ts.svg)
+[![Gradle Plugin Portal](https://img.shields.io/maven-metadata/v/https/plugins.gradle.org/m2/net/akehurst/kotlin/kt2ts/net.akehurst.kotlin.kt2ts.gradle.plugin/maven-metadata.xml.svg?colorB=007ec6&label=gradle%20plugin)](https://plugins.gradle.org/plugin/net.akehurst.kotlin.kt2ts)
+
 # net.akehurst.kotlin.kt2ts
 Typescript definition file generator for kotlin (js) classes
 
@@ -15,7 +19,7 @@ The plugin addresses use cases such as:
 
 ```
 plugins {
-    id("net.akehurst.kotlin.kt2ts") version("1.3.0")
+    id("net.akehurst.kotlin.kt2ts") version("$version")
 }
 ```
 
