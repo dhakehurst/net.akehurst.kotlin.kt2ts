@@ -32,6 +32,7 @@ export declare namespace kotlin {
 export declare namespace kotlin.collections {
 
     // Mutable collections have no representation in kotlin.js
+    // the methods (with parameters) declared here do not work at runtime because kotlin mangles the names !
 
     interface Collection<E> {
         size: number;
