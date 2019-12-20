@@ -1,7 +1,12 @@
 export declare namespace kotlin {
     interface Pair<F, S> {
+        first: F;
+        second: S;
     }
     interface Triple<F, S, T> {
+        first: F;
+        second: S;
+        third: T;
     }
     interface Comparable<T = any> {
     }
@@ -39,11 +44,11 @@ export declare namespace kotlin.collections {
 
         toArray(): E[];
 
-        add(element: E);
+        //add(element: E);
 
         clear();
 
-        remove(element: E);
+        //remove(element: E);
 
         isEmpty(): boolean;
     }
@@ -60,15 +65,15 @@ export declare namespace kotlin.collections {
         values: Collection<V>;
         entries: Set<Map.Entry<K, V>>;
 
-        containsKey(key: K): boolean
+        //containsKey(key: K): boolean
 
-        get(key: K,): V;
+        //get(key: K,): V;
 
-        put(key: K, value: V);
+        //put(key: K, value: V);
 
         clear();
 
-        remove(key: K);
+        //remove(key: K);
 
         isEmpty(): boolean;
     }
