@@ -14,6 +14,8 @@ The plugin addresses use cases such as:
 2. generating .d.ts file for a third-party module
 3. building an angular application and integrating kotlin generated modules.
 
+Minimal documentation is below, for full documentation please register here [https://info.itemis.com/en/kotlin-typescript-integration/]. The company that has kindly sponsored the development of this plugin would like your email address.
+
 
 ## Add the plugin
 
@@ -33,6 +35,3 @@ kt2ts {
     ))
 }
 ```
-
-## configure the plugin for third-party modules
-  doc TODO
