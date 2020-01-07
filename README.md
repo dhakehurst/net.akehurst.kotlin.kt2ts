@@ -16,6 +16,7 @@ The plugin addresses use cases such as:
 
 Minimal documentation is below, for full documentation please register here [https://info.itemis.com/en/kotlin-typescript-integration/]. The company that has kindly sponsored the development of this plugin would like your email address.
 
+A blog post that discusses the issues this plugin tries to solve can be found here [https://medium.com/@dr.david.h.akehurst/building-applications-with-kotlin-and-typescript-8a165e76252c].
 
 ## Add the plugin
 
