@@ -89,7 +89,7 @@ open class GeneratorPluginExtension(project: Project, objects: ObjectFactory) {
     val jvmTargetName = objects.property(String::class.java)
 
     /**
-     * name of the kotlin js target for this module [default 'jvm']
+     * name of the kotlin js target for this module [default 'js']
      */
     val jsTargetName = objects.property(String::class.java)
 

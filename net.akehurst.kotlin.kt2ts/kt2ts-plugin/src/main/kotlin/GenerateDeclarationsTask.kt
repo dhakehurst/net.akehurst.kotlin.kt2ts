@@ -31,6 +31,8 @@ import kotlin.reflect.*
 import kotlin.reflect.full.declaredMemberFunctions
 import kotlin.reflect.full.declaredMemberProperties
 import kotlin.reflect.full.valueParameters
+// import kotlin.js.JsName // not sure why it is invalid to import this
+import kotlin.reflect.full.memberProperties
 
 data class Module(
         val group: String,
@@ -432,7 +434,14 @@ open class GenerateDeclarationsTask : DefaultTask() {
     }
 
     private fun generateMethod(method: KFunction<*>, owningTypePackage: Namespace): String {
-        val name = method.name
+        println("method ${method.name} has annotations ${method.annotations}")
+        val ann = method.annotations.firstOrNull { it.annotationClass.qualifiedName=="kotlin.js.JsName" } // can't import JsName thnk this is a kotlin bug!
+        val name = if (null==ann) {
+            method.name
+        } else {
+            val nameProp = ann.annotationClass.memberProperties.first { it.name=="name" }
+            (nameProp as KProperty1<Any,String>).get(ann)
+        }
         val generic = if (method.typeParameters.isEmpty()) {
             ""
         } else {

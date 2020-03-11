@@ -63,7 +63,7 @@ class GeneratorPlugin : Plugin<ProjectInternal> {
                     it.group = "nodejs"
                     it.dependsOn(NodeJsSetupTask.NAME, YarnSetupTask.NAME)
                     it.doLast {
-                        YarnSimple.yarnExec(project.rootProject, nodeSrcDir, "yarn install", "install", "--cwd", "--no-bin-links")
+                        YarnSimple.yarnExec(project.rootProject, nodeSrcDir, "yarn install/add", "add", "--cwd", "--no-bin-links")
                     }
                 }
                 project.tasks.create(UnpackJsModulesTask.NAME, UnpackJsModulesTask::class.java) { tsk ->
@@ -76,17 +76,23 @@ class GeneratorPlugin : Plugin<ProjectInternal> {
                 project.tasks.create(AddKotlinStdlibDeclarationsTask.NAME, AddKotlinStdlibDeclarationsTask::class.java) { tsk ->
                     tsk.outputDirectory.set(ext.kotlinStdlibJsDirectory)
                 }
+                project.tasks.create(GeneratePackageJsonTask.NAME+"-kotlin", GeneratePackageJsonTask::class.java) { tsk ->
+                    tsk.dependsOn(AddKotlinStdlibDeclarationsTask.NAME)
+                    tsk.packageJsonDir.set(ext.kotlinStdlibJsDirectory)
+                    tsk.moduleGroup.set("org.jetbrains.kotlin")
+                    tsk.moduleName.set("kotlin-stdlib-js")
+                }
                 project.tasks.create(TASK_NODE_BUILD) {
                     it.group = "nodejs"
                     it.dependsOn(UnpackJsModulesTask.NAME)
-                    it.dependsOn("addKotlinStdlibDeclarations")
+                    it.dependsOn(GeneratePackageJsonTask.NAME+"-kotlin")
                     it.doLast {
                         val nodeArgs = ext.nodeBuildCommand.get().toTypedArray()
                         YarnSimple.yarnExec(project.rootProject, project.file(ext.nodeSrcDirectory.get()), "node build command", *nodeArgs)
                     }
                 }
 
-                project.tasks.getByName("jsProcessResources").dependsOn(TASK_NODE_BUILD)
+                project.tasks.getByName("${ext.jsTargetName.get()}ProcessResources").dependsOn(TASK_NODE_BUILD)
 
                 if (ext.dynamicImport.isPresent && ext.dynamicImport.get().isNotEmpty()) {
                     project.tasks.create(GenerateDynamicRequire.NAME, GenerateDynamicRequire::class.java) { tsk ->

@@ -46,6 +46,7 @@ open class AddKotlinStdlibDeclarationsTask : DefaultTask() {
         declFile.printWriter().use { out ->
             out.println(text)
         }
+        /*
         val jsonFile = outputDir.resolve("package.json")
         jsonFile.printWriter().use { out ->
             out.println("""
@@ -56,6 +57,7 @@ open class AddKotlinStdlibDeclarationsTask : DefaultTask() {
                 }
                 """.trimIndent())
         }
+         */
     }
 
 }
