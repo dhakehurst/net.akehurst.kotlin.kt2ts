@@ -35,6 +35,7 @@ class GeneratorPlugin : Plugin<ProjectInternal> {
 
     override fun apply(project: ProjectInternal) {
         project.pluginManager.apply(BasePlugin::class.java)
+        YarnSimple.setup(project.rootProject)
         val ext = project.extensions.create<GeneratorPluginExtension>(GeneratorPluginExtension.NAME, GeneratorPluginExtension::class.java, project)
 
         val nodeKotlinConfig = project.configurations.create(ext.nodeConfigurationName.get()) {
@@ -59,15 +60,15 @@ class GeneratorPlugin : Plugin<ProjectInternal> {
                     }
                 }
                 // use yarn to install the node_modules required by the node code
-                project.tasks.create("yarnInstall") {
+                project.tasks.create("yarnInstallAll") {
                     it.group = "nodejs"
                     it.dependsOn(NodeJsSetupTask.NAME, YarnSetupTask.NAME)
                     it.doLast {
-                        YarnSimple.yarnExec(project.rootProject, nodeSrcDir, "yarn install/add", "add", "--cwd", "--no-bin-links")
+                        YarnSimple.yarnExec(project.rootProject, nodeSrcDir, "yarn install all", "--no-bin-links" )
                     }
                 }
                 project.tasks.create(UnpackJsModulesTask.NAME, UnpackJsModulesTask::class.java) { tsk ->
-                    tsk.dependsOn(nodeKotlinConfig, "yarnInstall")
+                    tsk.dependsOn(nodeKotlinConfig, "yarnInstallAll")
                     tsk.moduleNameMap.set(ext.moduleNameMap)
                     tsk.nodeModulesDirectory.set(ext.nodeModulesDirectory)
                     tsk.unpackConfigurationName.set(ext.nodeConfigurationName)

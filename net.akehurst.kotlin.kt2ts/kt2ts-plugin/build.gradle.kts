@@ -3,7 +3,7 @@ import org.jetbrains.kotlin.gradle.plugin.KotlinSourceSet
 plugins {
     `java-gradle-plugin`
     `maven-publish`
-    id("com.gradle.plugin-publish") version "0.10.1"
+    id("com.gradle.plugin-publish") version "0.11.0"
 }
 
 
@@ -11,7 +11,7 @@ dependencies {
     implementation(gradleApi())
     implementation(localGroovy())
 
-    implementation("org.jetbrains.kotlin:kotlin-gradle-plugin:1.3.61")
+    implementation("org.jetbrains.kotlin:kotlin-gradle-plugin:1.3.70")
     implementation("io.github.classgraph:classgraph:4.8.47")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-runtime:0.13.0")
 }
