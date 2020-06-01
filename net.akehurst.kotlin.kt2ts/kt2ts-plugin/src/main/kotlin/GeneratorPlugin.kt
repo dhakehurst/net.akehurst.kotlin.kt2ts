@@ -35,7 +35,7 @@ class GeneratorPlugin : Plugin<ProjectInternal> {
 
     override fun apply(project: ProjectInternal) {
         project.pluginManager.apply(BasePlugin::class.java)
-        YarnSimple.setup(project.rootProject)
+        YarnSimple().setup(project.rootProject)
         val ext = project.extensions.create<GeneratorPluginExtension>(GeneratorPluginExtension.NAME, GeneratorPluginExtension::class.java, project)
 
         val nodeKotlinConfig = project.configurations.create(ext.nodeConfigurationName.get()) {
@@ -64,7 +64,7 @@ class GeneratorPlugin : Plugin<ProjectInternal> {
                     it.group = "nodejs"
                     it.dependsOn(NodeJsSetupTask.NAME, YarnSetupTask.NAME)
                     it.doLast {
-                        YarnSimple.yarnExec(project.rootProject, nodeSrcDir, "yarn install all", "--no-bin-links" )
+                        YarnSimple().yarnExec(project.rootProject, nodeSrcDir, "yarn install all", "--no-bin-links" )
                     }
                 }
                 project.tasks.create(UnpackJsModulesTask.NAME, UnpackJsModulesTask::class.java) { tsk ->
@@ -89,7 +89,7 @@ class GeneratorPlugin : Plugin<ProjectInternal> {
                     it.dependsOn(GeneratePackageJsonTask.NAME+"-kotlin")
                     it.doLast {
                         val nodeArgs = ext.nodeBuildCommand.get().toTypedArray()
-                        YarnSimple.yarnExec(project.rootProject, project.file(ext.nodeSrcDirectory.get()), "node build command", *nodeArgs)
+                        YarnSimple().yarnExec(project.rootProject, project.file(ext.nodeSrcDirectory.get()), "node build command", *nodeArgs)
                     }
                 }
 
