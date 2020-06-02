@@ -11,6 +11,7 @@ dependencies {
     implementation(gradleApi())
     implementation(localGroovy())
 
+
     implementation("org.jetbrains.kotlin:kotlin-gradle-plugin:1.3.71") //version must match version used by gradle
     implementation("io.github.classgraph:classgraph:4.8.47")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-runtime:0.13.0")

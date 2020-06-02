@@ -157,7 +157,8 @@ class GeneratorPlugin : Plugin<ProjectInternal> {
                     gt.moduleNameMap.set(ext.moduleNameMap)
                 }
 
-                project.tasks.getByName("jsJar").dependsOn(GenerateDeclarationsTask.NAME)
+                val jsJarTask = ext.jsTargetName.get() + "Jar"
+                project.tasks.getByName(jsJarTask).dependsOn(GenerateDeclarationsTask.NAME)
             }
         }
     }
