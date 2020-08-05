@@ -36,6 +36,17 @@ export declare namespace kotlin {
 }
 export declare namespace kotlin.collections {
 
+    interface Iterator<T> {
+        next(): T
+        hasNext(): Boolean
+    }
+    interface ListIterator<T> extends Iterator<T> {
+        hasPrevious(): Boolean
+        previous(): T
+        nextIndex(): number
+        previousIndex(): number
+    }
+
     // Mutable collections have no representation in kotlin.js
     // the methods (with parameters) declared here do not work at runtime because kotlin mangles the names !
 

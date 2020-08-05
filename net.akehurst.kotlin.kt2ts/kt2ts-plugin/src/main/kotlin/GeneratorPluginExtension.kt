@@ -17,7 +17,9 @@
 package net.akehurst.kotlin.kt2ts.plugin.gradle
 
 import org.gradle.api.Project
+import org.gradle.api.file.Directory
 import org.gradle.api.model.ObjectFactory
+import org.gradle.api.provider.Provider
 
 open class GeneratorPluginExtension(project: Project, objects: ObjectFactory) {
 
@@ -113,12 +115,14 @@ open class GeneratorPluginExtension(project: Project, objects: ObjectFactory) {
         this.kotlinStdlibJsDirectory.convention(this.nodeModulesDirectory.map { it.dir("kotlin") })
         this.nodeBuildCommand.convention(listOf("run", "build", "--outputPath=${this.nodeOutDirectory.get()}/dist"))
 
-        val tsOutDir = project.layout.buildDirectory.dir("tmp/jsJar/ts")
-        this.tsdOutputDirectory.convention(tsOutDir)
         this.overwrite.convention(true)
         this.localOnly.convention(true)
         this.jvmTargetName.convention("jvm")
         this.jsTargetName.convention("js")
+        val tsOutDir:Provider<Directory> = this.jsTargetName.map {
+            project.layout.buildDirectory.dir("tmp/${it}Jar/ts").get()
+        }
+        this.tsdOutputDirectory.convention(tsOutDir)
 
         this.declarationsFile.convention(tsdOutputDirectory.file("${project.group}-${project.name}.d.ts"))
         this.excludeModules.convention(listOf(

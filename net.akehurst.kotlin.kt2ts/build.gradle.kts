@@ -24,7 +24,7 @@ import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 
 plugins {
-    kotlin("jvm") version ("1.3.71") apply false //version must match version used by gradle
+    kotlin("jvm") version ("1.3.72") apply false //version must match version used by gradle, change also in gradle.properties
     id("com.jfrog.bintray") version ("1.8.5") apply false
 }
 
