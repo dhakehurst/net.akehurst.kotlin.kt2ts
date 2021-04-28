@@ -27,5 +27,3 @@ fileTree(".") {
     include(prj)
     project(":$prj").projectDir = File(relativePath(it.parent))
 }
-
-enableFeaturePreview("GRADLE_METADATA")

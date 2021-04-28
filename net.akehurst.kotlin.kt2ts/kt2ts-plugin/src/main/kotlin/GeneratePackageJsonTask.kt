@@ -18,6 +18,8 @@ package net.akehurst.kotlin.kt2ts.plugin.gradle
 
 import kotlinx.serialization.json.*
 import org.gradle.api.DefaultTask
+import org.gradle.api.file.DirectoryProperty
+import org.gradle.api.provider.Property
 import org.gradle.api.tasks.Input
 import org.gradle.api.tasks.Optional
 import org.gradle.api.tasks.OutputDirectory
@@ -38,15 +40,18 @@ open class GeneratePackageJsonTask : DefaultTask() {
             return if (file.exists()) {
                 json.parseJson(file.readText()).jsonObject
             } else {
+                //error("package.json file not found, should have been created by kotlin compiler")
                 file.parentFile.mkdirs()
                 file.printWriter().use { out ->
-                    out.println("""
+                    out.println(
+                        """
                         {
                             "name": "${jsModuleName}",
                             "version": "${_moduleVersion}",
                             "main": "./${mainFileName}"
                         }
-                        """.trimIndent())
+                        """.trimIndent()
+                    )
                 }
                 json.parseJson(file.readText()).jsonObject
             }
@@ -54,26 +59,26 @@ open class GeneratePackageJsonTask : DefaultTask() {
     }
 
     @get:OutputDirectory
-    val packageJsonDir = project.objects.directoryProperty()
+    val packageJsonDir: DirectoryProperty = project.objects.directoryProperty()
 
     @get:Input
     @get:Optional
-    val moduleGAV = project.objects.property(String::class.java)
+    val moduleGAV: Property<String> = project.objects.property(String::class.java)
 
     @get:Input
     @get:Optional
-    val moduleName = project.objects.property(String::class.java)
+    val moduleName: Property<String> = project.objects.property(String::class.java)
 
     @get:Input
     @get:Optional
-    val moduleGroup = project.objects.property(String::class.java)
+    val moduleGroup: Property<String> = project.objects.property(String::class.java)
 
     @get:Input
     @get:Optional
-    val moduleVersion = project.objects.property(String::class.java)
+    val moduleVersion: Property<String> = project.objects.property(String::class.java)
 
     @get:Input
-    val mainFileName = project.objects.property(String::class.java)
+    val mainFileName: Property<String> = project.objects.property(String::class.java)
 
     init {
         this.group = "generate"
@@ -107,7 +112,7 @@ open class GeneratePackageJsonTask : DefaultTask() {
         } else {
             "$jsModuleId.js"
         }
-        LOGGER.info("Creating new file $_packageJsonFile")
+        LOGGER.info("Trying to update existing file $_packageJsonFile")
         val json = readOrCreatePackageJson(_packageJsonFile, jsModuleId, _moduleVersion, _mainFileName)
         val mutable = mutableMapOf<String, JsonElement>()
         mutable.putAll(json)

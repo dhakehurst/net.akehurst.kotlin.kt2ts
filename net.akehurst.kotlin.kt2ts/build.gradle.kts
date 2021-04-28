@@ -14,9 +14,6 @@
  * limitations under the License.
  */
 
-import com.jfrog.bintray.gradle.BintrayExtension
-import com.jfrog.bintray.gradle.tasks.BintrayUploadTask
-import org.gradle.api.publish.maven.internal.artifact.FileBasedMavenArtifact
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 import java.io.File
 import java.time.Instant
@@ -24,8 +21,7 @@ import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 
 plugins {
-    kotlin("jvm") version ("1.3.72") apply false //version must match version used by gradle, change also in gradle.properties
-    id("com.jfrog.bintray") version ("1.8.5") apply false
+    kotlin("jvm") version ("1.4.32") apply false //version must match version used by gradle, change also in gradle.properties
 }
 
 allprojects {
@@ -47,7 +43,6 @@ subprojects {
 
     apply(plugin = "org.jetbrains.kotlin.jvm")
     apply(plugin = "maven-publish")
-    apply(plugin = "com.jfrog.bintray")
 
     repositories {
         mavenCentral()
@@ -83,51 +78,12 @@ subprojects {
     }
 
     dependencies {
-        "implementation"(kotlin("stdlib-jdk8"))
         "implementation"(kotlin("test-junit"))
     }
 
     tasks.withType<KotlinCompile>().configureEach {
         kotlinOptions {
             jvmTarget = "1.8"
-        }
-    }
-
-    configure<BintrayExtension> {
-        user = getProjectProperty("bintrayUser")
-        key = getProjectProperty("bintrayApiKey")
-        publish = true
-        override = true
-        setPublications("default")
-        pkg(delegateClosureOf<BintrayExtension.PackageConfig> {
-            repo = "maven"
-            name = "${rootProject.name}"
-            userOrg = user
-            websiteUrl = "https://github.com/dhakehurst/net.akehurst.kotlin.kt2ts"
-            vcsUrl = "https://github.com/dhakehurst/net.akehurst.kotlin.kt2ts"
-            setLabels("kotlin")
-            setLicenses("Apache-2.0")
-        })
-    }
-
-    val bintrayUpload by tasks.getting
-    val publishToMavenLocal by tasks.getting
-    val publishing = extensions.getByType(PublishingExtension::class.java)
-
-    bintrayUpload.dependsOn(publishToMavenLocal)
-
-    tasks.withType<BintrayUploadTask> {
-        doFirst {
-            publishing.publications
-                    .filterIsInstance<MavenPublication>()
-                    .forEach { publication ->
-                        val moduleFile = buildDir.resolve("publications/${publication.name}/module.json")
-                        if (moduleFile.exists()) {
-                            publication.artifact(object : FileBasedMavenArtifact(moduleFile) {
-                                override fun getDefaultExtension() = "module"
-                            })
-                        }
-                    }
         }
     }
 }

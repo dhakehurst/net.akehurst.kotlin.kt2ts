@@ -21,11 +21,17 @@ import org.gradle.api.attributes.Usage
 import org.gradle.api.internal.project.ProjectInternal
 import org.gradle.api.plugins.BasePlugin
 import org.jetbrains.kotlin.gradle.dsl.KotlinMultiplatformExtension
+import org.jetbrains.kotlin.gradle.plugin.KotlinJsCompilerType
 import org.jetbrains.kotlin.gradle.plugin.KotlinPlatformType
 import org.jetbrains.kotlin.gradle.plugin.mpp.KotlinUsages
 import org.jetbrains.kotlin.gradle.targets.js.nodejs.NodeJsSetupTask
+import org.jetbrains.kotlin.gradle.targets.js.npm.PublicPackageJsonTask
 import org.jetbrains.kotlin.gradle.targets.js.yarn.YarnSetupTask
 import org.jetbrains.kotlin.gradle.targets.js.yarn.YarnSimple
+
+val ProjectInternal.kotlinExtension : KotlinMultiplatformExtension get() {
+   return this.extensions.findByType(KotlinMultiplatformExtension::class.java) ?: error("No Kotlin Multiplatform extension found")
+}
 
 class GeneratorPlugin : Plugin<ProjectInternal> {
 
@@ -64,7 +70,7 @@ class GeneratorPlugin : Plugin<ProjectInternal> {
                     it.group = "nodejs"
                     it.dependsOn(NodeJsSetupTask.NAME, YarnSetupTask.NAME)
                     it.doLast {
-                        YarnSimple().yarnExec(project.rootProject, nodeSrcDir, "yarn install all", "--no-bin-links" )
+                        YarnSimple().yarnExec(project.rootProject, nodeSrcDir, "yarn install all", listOf("--no-bin-links"))
                     }
                 }
                 project.tasks.create(UnpackJsModulesTask.NAME, UnpackJsModulesTask::class.java) { tsk ->
@@ -77,7 +83,7 @@ class GeneratorPlugin : Plugin<ProjectInternal> {
                 project.tasks.create(AddKotlinStdlibDeclarationsTask.NAME, AddKotlinStdlibDeclarationsTask::class.java) { tsk ->
                     tsk.outputDirectory.set(ext.kotlinStdlibJsDirectory)
                 }
-                project.tasks.create(GeneratePackageJsonTask.NAME+"-kotlin", GeneratePackageJsonTask::class.java) { tsk ->
+                project.tasks.create(GeneratePackageJsonTask.NAME + "-kotlin", GeneratePackageJsonTask::class.java) { tsk ->
                     tsk.dependsOn(AddKotlinStdlibDeclarationsTask.NAME)
                     tsk.packageJsonDir.set(ext.kotlinStdlibJsDirectory)
                     tsk.moduleGroup.set("org.jetbrains.kotlin")
@@ -86,10 +92,10 @@ class GeneratorPlugin : Plugin<ProjectInternal> {
                 project.tasks.create(TASK_NODE_BUILD) {
                     it.group = "nodejs"
                     it.dependsOn(UnpackJsModulesTask.NAME)
-                    it.dependsOn(GeneratePackageJsonTask.NAME+"-kotlin")
+                    it.dependsOn(GeneratePackageJsonTask.NAME + "-kotlin")
                     it.doLast {
                         val nodeArgs = ext.nodeBuildCommand.get().toTypedArray()
-                        YarnSimple().yarnExec(project.rootProject, project.file(ext.nodeSrcDirectory.get()), "node build command", *nodeArgs)
+                        YarnSimple().yarnExec(project.rootProject, project.file(ext.nodeSrcDirectory.get()), "node build command", nodeArgs.toList())
                     }
                 }
 
@@ -134,33 +140,65 @@ class GeneratorPlugin : Plugin<ProjectInternal> {
 
             if (ext.classPatterns.isPresent && ext.classPatterns.get().isNotEmpty()) {
                 // generate own .d.ts
-                project.extensions.findByType(KotlinMultiplatformExtension::class.java)?.sourceSets?.findByName(ext.jsTargetName.map { "${it}Main" }.get())?.resources?.srcDir(ext.tsdOutputDirectory)
+                val kotlinExt = project.kotlinExtension
 
-                project.tasks.create(GeneratePackageJsonTask.NAME, GeneratePackageJsonTask::class.java) { tsk ->
-                    tsk.packageJsonDir.set(ext.tsdOutputDirectory)
-                }
-                project.tasks.create(GenerateDeclarationsTask.NAME, GenerateDeclarationsTask::class.java) { gt ->
-                    //TODO: how to set dependsOn to "${ext.jvmName}MainClasses" ?
-                    val jvmMainClasses = ext.jvmTargetName.map { "${it}MainClasses" }
-                    gt.dependsOn(GeneratePackageJsonTask.NAME, jvmMainClasses)
-                    gt.overwrite.set(ext.overwrite)
-                    gt.localOnly.set(ext.localOnly)
-                    gt.includeOnly.set(ext.includeOnly)
-                    gt.declarationsFile.set(ext.declarationsFile)
-                    gt.jvmTargetName.set(ext.jvmTargetName)
-                    gt.jsTargetName.set(ext.jsTargetName)
-                    gt.classPatterns.set(ext.classPatterns)
-                    gt.typeMapping.set(ext.typeMapping)
-                    gt.outputDirectory.set(ext.tsdOutputDirectory)
-                    gt.declarationsFile.set(ext.declarationsFile)
-                    //gt.dependencies = ext.dependencies
-                    gt.moduleNameMap.set(ext.moduleNameMap)
-                }
+                when (kotlinExt.defaultJsCompilerType) {
+                    KotlinJsCompilerType.LEGACY -> {
+                        generatePackageJsonTask(project, ext, "")
+                        generateDeclarationsTask(project, ext, "", ext.jsTargetName.get() + "Jar")
+                    }
+                    KotlinJsCompilerType.IR -> {
+                        // no need to update PackageJson with types...already done by kotlin
+                        //generatePackageJsonTask(project, ext, "Ir")
+                        generateDeclarationsTask(project, ext, "",ext.jsTargetName.get() + "Jar")
+                    }
+                    KotlinJsCompilerType.BOTH -> {
+                        generatePackageJsonTask(project, ext, "Legacy")
+                        // no need to update IR PackageJson with types...already done by kotlin
+                        //generatePackageJsonTask(project, ext, "Ir")
 
-                val jsJarTask = ext.jsTargetName.get() + "Jar"
-                project.tasks.getByName(jsJarTask).dependsOn(GenerateDeclarationsTask.NAME)
+                        generateDeclarationsTask(project, ext, "Legacy",ext.jsTargetName.get() + "LegacyJar")
+                        generateDeclarationsTask(project, ext, "Ir",ext.jsTargetName.get() + "IrJar")
+                    }
+                }
+                //TODO: what does this line do?
+                kotlinExt.sourceSets.findByName(ext.jsTargetName.map { "${it}Main" }.get())?.resources?.srcDir(ext.tsdOutputDirectory)
+
             }
         }
     }
 
+    fun generatePackageJsonTask(project: ProjectInternal, ext: GeneratorPluginExtension, suffix: String) {
+        val taskName = GeneratePackageJsonTask.NAME + suffix
+        val publicPackageJsonTaskName = ext.jsTargetName.get() + suffix + PublicPackageJsonTask.NAME.capitalize()
+        val task = project.tasks.create(taskName, GeneratePackageJsonTask::class.java) { tsk ->
+            tsk.packageJsonDir.set(project.layout.buildDirectory.dir("tmp/$publicPackageJsonTaskName").get())
+        }
+        val publicPackageJsonTask = project.tasks.findByName(publicPackageJsonTaskName) ?: error("Cannot find task $publicPackageJsonTaskName")
+        publicPackageJsonTask.finalizedBy(task)
+    }
+
+    fun generateDeclarationsTask(project: ProjectInternal, ext: GeneratorPluginExtension, suffix: String, jsJarTaskName:String) {
+        val taskName = GenerateDeclarationsTask.NAME + suffix
+        val task = project.tasks.create(taskName, GenerateDeclarationsTask::class.java) { gt ->
+            val jvmMainClasses = ext.jvmTargetName.map { "${it}MainClasses" }
+            gt.dependsOn(jvmMainClasses)
+            gt.overwrite.set(ext.overwrite)
+            gt.localOnly.set(ext.localOnly)
+            gt.includeOnly.set(ext.includeOnly)
+            gt.declarationsFile.set(ext.declarationsFile)
+            gt.jvmTargetName.set(ext.jvmTargetName)
+            gt.jsTargetName.set(ext.jsTargetName)
+            gt.classPatterns.set(ext.classPatterns)
+            gt.typeMapping.set(ext.typeMapping)
+            gt.outputDirectory.set(ext.tsdOutputDirectory)
+            gt.declarationsFile.set(ext.declarationsFile)
+            //gt.dependencies = ext.dependencies
+            gt.moduleNameMap.set(ext.moduleNameMap)
+        }
+
+        val jsJarTask = project.tasks.findByName(jsJarTaskName) ?: error("Cannot find task $jsJarTaskName")
+        jsJarTask.dependsOn(task)
+
+    }
 }
