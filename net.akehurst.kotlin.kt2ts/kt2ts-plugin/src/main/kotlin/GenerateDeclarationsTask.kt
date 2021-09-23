@@ -31,6 +31,7 @@ import kotlin.reflect.*
 import kotlin.reflect.full.declaredMemberFunctions
 import kotlin.reflect.full.declaredMemberProperties
 import kotlin.reflect.full.valueParameters
+import kotlin.reflect.full.createType
 // import kotlin.js.JsName // not sure why it is invalid to import this
 import kotlin.reflect.full.memberProperties
 
@@ -466,7 +467,11 @@ open class GenerateDeclarationsTask : DefaultTask() {
             is KClass<*> -> {
                 when {
                     kclass.java.isArray -> {
-                        val t = generateType(ktype.arguments.first().type!!, owningNamespace)
+                        val t = if(kclass == ByteArray::class) {
+                            generateType(Byte::class.createType(), owningNamespace)
+                        } else {
+                            generateType(ktype.arguments.first().type!!, owningNamespace)
+                        }
                         "$t[]"
                     }
                     else -> {
