@@ -3,7 +3,7 @@ import org.jetbrains.kotlin.gradle.plugin.KotlinSourceSet
 plugins {
     `java-gradle-plugin`
     `maven-publish`
-    id("com.gradle.plugin-publish") version "0.12.0"
+    id("com.gradle.plugin-publish") version "0.14.0"
 }
 
 val version_kotlin:String by project
@@ -11,10 +11,9 @@ dependencies {
     implementation(gradleApi())
     implementation(localGroovy())
 
-
     implementation("org.jetbrains.kotlin:kotlin-gradle-plugin:$version_kotlin") //version must match version used by gradle
     implementation("io.github.classgraph:classgraph:4.8.47")
-    implementation("org.jetbrains.kotlinx:kotlinx-serialization-runtime:0.13.0")
+    implementation("org.jetbrains.kotlinx:kotlinx-serialization-runtime:0.20.0")
 }
 
 java {

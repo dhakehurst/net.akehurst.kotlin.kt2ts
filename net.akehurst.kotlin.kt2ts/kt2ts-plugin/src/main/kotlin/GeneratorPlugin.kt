@@ -180,23 +180,27 @@ class GeneratorPlugin : Plugin<ProjectInternal> {
 
     fun generateDeclarationsTask(project: ProjectInternal, ext: GeneratorPluginExtension, suffix: String, jsJarTaskName:String) {
         val taskName = GenerateDeclarationsTask.NAME + suffix
+        val fileName = if (suffix.isBlank()) {
+            ext.declarationsFile
+        } else {
+            ext.tsdOutputDirectory.file("${project.group}-${project.name}-js$suffix.d.ts") //TODO: makes declarationsFile redundant!
+        }
+
         val task = project.tasks.create(taskName, GenerateDeclarationsTask::class.java) { gt ->
             val jvmMainClasses = ext.jvmTargetName.map { "${it}MainClasses" }
             gt.dependsOn(jvmMainClasses)
             gt.overwrite.set(ext.overwrite)
             gt.localOnly.set(ext.localOnly)
             gt.includeOnly.set(ext.includeOnly)
-            gt.declarationsFile.set(ext.declarationsFile)
+            gt.declarationsFile.set(fileName)
             gt.jvmTargetName.set(ext.jvmTargetName)
             gt.jsTargetName.set(ext.jsTargetName)
             gt.classPatterns.set(ext.classPatterns)
             gt.typeMapping.set(ext.typeMapping)
             gt.outputDirectory.set(ext.tsdOutputDirectory)
-            gt.declarationsFile.set(ext.declarationsFile)
             //gt.dependencies = ext.dependencies
             gt.moduleNameMap.set(ext.moduleNameMap)
         }
-
         val jsJarTask = project.tasks.findByName(jsJarTaskName) ?: error("Cannot find task $jsJarTaskName")
         jsJarTask.dependsOn(task)
 

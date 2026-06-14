@@ -20,6 +20,11 @@ import io.github.classgraph.ClassGraph
 import io.github.classgraph.ClassInfo
 import org.gradle.api.DefaultTask
 import org.gradle.api.artifacts.Configuration
+import org.gradle.api.file.DirectoryProperty
+import org.gradle.api.file.RegularFileProperty
+import org.gradle.api.provider.ListProperty
+import org.gradle.api.provider.MapProperty
+import org.gradle.api.provider.Property
 import org.gradle.api.tasks.*
 import org.slf4j.LoggerFactory
 import java.io.File
@@ -95,41 +100,41 @@ open class GenerateDeclarationsTask : DefaultTask() {
      * group name of the module to generate for [default project.group]
      */
     @get:Input
-    val moduleGroup = project.objects.property(String::class.java)
+    val moduleGroup:Property<String> = project.objects.property(String::class.java)
 
     /**
      * name of the module to generate for [default project.name]
      */
     @get:Input
-    val moduleName = project.objects.property(String::class.java)
+    val moduleName:Property<String> = project.objects.property(String::class.java)
 
     @get:Input
-    val overwrite = project.objects.property(Boolean::class.java)
+    val overwrite:Property<Boolean> = project.objects.property(Boolean::class.java)
 
     @get:Input
-    val localOnly = project.objects.property(Boolean::class.java)
+    val localOnly:Property<Boolean> = project.objects.property(Boolean::class.java)
 
     @get:Input
-    val includeOnly = project.objects.listProperty(String::class.java)
+    val includeOnly: ListProperty<String> = project.objects.listProperty(String::class.java)
 
     @get:Input
-    val jvmTargetName = project.objects.property(String::class.java)
+    val jvmTargetName:Property<String> = project.objects.property(String::class.java)
 
     @get:Input
-    val jsTargetName = project.objects.property(String::class.java)
+    val jsTargetName:Property<String> = project.objects.property(String::class.java)
 
     @get:OutputDirectory
-    val outputDirectory = project.objects.directoryProperty()
+    val outputDirectory: DirectoryProperty = project.objects.directoryProperty()
 
     @get:OutputFile
-    val declarationsFile = project.objects.fileProperty()
+    val declarationsFile: RegularFileProperty = project.objects.fileProperty()
 
     @get:Input
-    val classPatterns = project.objects.listProperty(String::class.java)
+    val classPatterns:ListProperty<String> = project.objects.listProperty(String::class.java)
 
     @get:Input
     @get:Optional
-    val typeMapping = project.objects.mapProperty(String::class.java, String::class.java)
+    val typeMapping:MapProperty<String,String> = project.objects.mapProperty(String::class.java, String::class.java)
 
     //@get:Input
     //@get:Optional
@@ -137,7 +142,7 @@ open class GenerateDeclarationsTask : DefaultTask() {
 
     @get:Input
     @get:Optional
-    val moduleNameMap = project.objects.mapProperty(String::class.java, String::class.java)
+    val moduleNameMap:MapProperty<String,String> = project.objects.mapProperty(String::class.java, String::class.java)
 
     private val classModuleMap: MutableMap<String, Module> = mutableMapOf()
 

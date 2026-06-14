@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+import com.github.gmazzo.gradle.plugins.BuildConfigExtension
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 import java.io.File
 import java.time.Instant
@@ -21,13 +22,14 @@ import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 
 plugins {
-    kotlin("jvm") version ("1.4.32") apply false //version must match version used by gradle, change also in gradle.properties
+    kotlin("jvm") version("1.4.32") apply false //version must match version used by gradle, change also in gradle.properties
+    id("com.github.gmazzo.buildconfig") version("3.0.0") apply false
 }
 
 allprojects {
 
     val version_project: String by project
-    val group_project = "${rootProject.name}"
+    val group_project = rootProject.name
 
     group = group_project
     version = version_project
@@ -43,38 +45,23 @@ subprojects {
 
     apply(plugin = "org.jetbrains.kotlin.jvm")
     apply(plugin = "maven-publish")
+    apply(plugin = "com.github.gmazzo.buildconfig")
 
     repositories {
+        mavenLocal()
         mavenCentral()
-        jcenter()
     }
 
-    val now = Instant.now()
-    fun fBbuildStamp(): String {
-        return DateTimeFormatter.ISO_DATE_TIME.withZone(ZoneId.of("UTC")).format(now)
-    }
+    configure<BuildConfigExtension> {
+        val now = Instant.now()
+        fun fBbuildStamp(): String = DateTimeFormatter.ISO_DATE_TIME.withZone(ZoneId.of("UTC")).format(now)
+        fun fBuildDate(): String =DateTimeFormatter.ofPattern("yyyy-MMM-dd").withZone(ZoneId.of("UTC")).format(now)
+        fun fBuildTime(): String= DateTimeFormatter.ofPattern("HH:mm:ss z").withZone(ZoneId.of("UTC")).format(now)
 
-    fun fBuildDate(): String {
-        return DateTimeFormatter.ofPattern("yyyy-MMM-dd").withZone(ZoneId.of("UTC")).format(now)
-    }
-
-    fun fBuildTime(): String {
-        return DateTimeFormatter.ofPattern("HH:mm:ss z").withZone(ZoneId.of("UTC")).format(now)
-    }
-    tasks.register<Copy>("generateFromTemplates") {
-        val templateContext = mapOf(
-                "version" to project.version,
-                "buildStamp" to fBbuildStamp(),
-                "buildDate" to fBuildDate(),
-                "buildTime" to fBuildTime()
-        )
-        inputs.properties(templateContext) // for gradle up-to-date check
-        from("src/template/kotlin")
-        into("$buildDir/generated/kotlin")
-        expand(templateContext)
-    }
-    tasks.getByName("compileKotlin") {
-        dependsOn("generateFromTemplates")
+        buildConfigField("String", "version", "\"${project.version}\"")
+        buildConfigField("String", "buildStamp", "\"${fBbuildStamp()}\"")
+        buildConfigField("String", "buildDate", "\"${fBuildDate()}\"")
+        buildConfigField("String", "buildTime", "\"${fBuildTime()}\"")
     }
 
     dependencies {

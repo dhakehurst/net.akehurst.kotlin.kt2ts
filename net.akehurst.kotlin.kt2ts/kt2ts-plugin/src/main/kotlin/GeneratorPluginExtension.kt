@@ -41,7 +41,7 @@ open class GeneratorPluginExtension(project: Project, objects: ObjectFactory) {
     val nodeOutDirectory = objects.directoryProperty()
 
     /**
-     * name of the configuration to use for finding depended modules [default 'jvmRuntimeClasspath']
+     * name of the configuration to use for finding depended modules [default 'nodeKotlin']
      */
     val nodeConfigurationName = objects.property(String::class.java)
 
